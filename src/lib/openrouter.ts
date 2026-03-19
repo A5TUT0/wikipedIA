@@ -1,0 +1,153 @@
+const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY as string
+const API_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+export type ArticleMode = "rapido" | "medio" | "extendido"
+
+const MODEL = "arcee-ai/trinity-large-preview:free"
+
+const INFOBOX_INSTRUCTION = `
+ANTES del artículo, genera un bloque de datos estructurados con el siguiente formato EXACTO:
+[INFOBOX]
+Nombre: nombre completo del tema
+Tipo: categoría o clasificación
+Campo1: valor1
+Campo2: valor2
+(incluye 4-8 campos relevantes con datos clave: fechas, ubicaciones, clasificaciones, datos numéricos, etc.)
+[/INFOBOX]
+
+Después del bloque INFOBOX, genera el artículo en Markdown.`
+
+const SYSTEM_PROMPTS: Record<ArticleMode, string> = {
+  rapido: `Eres WikipedIA, una enciclopedia generada por inteligencia artificial.
+Genera una respuesta CORTA y RÁPIDA en Markdown.
+${INFOBOX_INSTRUCTION}
+REGLAS:
+- Usa # para el título principal (solo uno)
+- Máximo 2 secciones con ##
+- Cada sección: 1 párrafo breve (2-3 oraciones)
+- Tono enciclopédico, neutral y formal
+- Escribe en el mismo idioma que el usuario
+- Usa **negrita** para términos clave
+- NO generes "Véase también" ni "Referencias"
+- Sé conciso y directo`,
+
+  medio: `Eres WikipedIA, una enciclopedia generada por inteligencia artificial.
+Genera un artículo enciclopédico de longitud media en Markdown.
+${INFOBOX_INSTRUCTION}
+REGLAS:
+- Usa # para el título principal (solo uno)
+- Usa ## para secciones principales (4-5 secciones)
+- Usa ### para subsecciones cuando sea necesario
+- Cada sección: 1-2 párrafos detallados
+- Tono enciclopédico, neutral y formal
+- Escribe en el mismo idioma que el usuario
+- NO uses listas con viñetas para el contenido principal
+- Usa **negrita** para términos importantes
+- NO generes "Véase también" ni "Referencias"`,
+
+  extendido: `Eres WikipedIA, una enciclopedia generada por inteligencia artificial.
+Genera un artículo enciclopédico COMPLETO y EXTENSO en Markdown.
+${INFOBOX_INSTRUCTION}
+REGLAS ESTRICTAS DE FORMATO:
+- Usa # para el título principal (solo uno)
+- Usa ## para secciones principales
+- Usa ### para subsecciones
+- Escribe párrafos largos y detallados con contenido enciclopédico real
+- Incluye datos, fechas, nombres y hechos verificables
+- El tono debe ser enciclopédico, neutral y formal (estilo Wikipedia)
+- Escribe en el mismo idioma que el usuario use en su búsqueda
+- NO uses listas con viñetas para el contenido principal, usa párrafos narrativos
+- Puedes usar **negrita** para términos importantes
+- NO generes "Véase también" ni "Referencias"
+- Genera al menos 6-8 secciones ## sustanciales
+- Cada sección debe tener al menos 2-3 párrafos detallados`,
+}
+
+export interface StreamCallbacks {
+  onReasoning: (chunk: string) => void
+  onContent: (chunk: string) => void
+  onDone: () => void
+  onError: (error: string) => void
+}
+
+export async function streamArticle(
+  query: string,
+  mode: ArticleMode,
+  callbacks: StreamCallbacks,
+  signal?: AbortSignal
+) {
+  const systemPrompt = SYSTEM_PROMPTS[mode]
+
+  const response = await fetch(API_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: query },
+      ],
+      reasoning: { enabled: true },
+      stream: true,
+    }),
+    signal,
+  })
+
+  if (!response.ok) {
+    callbacks.onError(`Error ${response.status}: ${response.statusText}`)
+    return
+  }
+
+  const reader = response.body?.getReader()
+  if (!reader) {
+    callbacks.onError("No se pudo leer la respuesta")
+    return
+  }
+
+  const decoder = new TextDecoder()
+  let buffer = ""
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split("\n")
+      buffer = lines.pop() ?? ""
+
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed || !trimmed.startsWith("data: ")) continue
+        const data = trimmed.slice(6)
+        if (data === "[DONE]") {
+          callbacks.onDone()
+          return
+        }
+
+        try {
+          const parsed = JSON.parse(data)
+          const delta = parsed.choices?.[0]?.delta
+          if (!delta) continue
+
+          if (delta.reasoning) {
+            callbacks.onReasoning(delta.reasoning)
+          }
+          if (delta.content) {
+            callbacks.onContent(delta.content)
+          }
+        } catch {
+          // skip malformed JSON chunks
+        }
+      }
+    }
+    callbacks.onDone()
+  } catch (err) {
+    if ((err as Error).name !== "AbortError") {
+      callbacks.onError((err as Error).message)
+    }
+  }
+}
