@@ -102,6 +102,19 @@ export function App() {
     }
   }, [view])
 
+  // ── Load from URL params on mount ───────────────────────────────────
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const q = params.get("q")?.trim()
+    const m = params.get("mode")
+    if (q) {
+      const validMode: ArticleMode =
+        m === "rapido" || m === "extendido" ? m : "medio"
+      handleSearch(q, validMode)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // ── Cmd/Ctrl+K → focus header search ────────────────────────────────
   useEffect(() => {
     if (view !== "article") return
@@ -133,6 +146,10 @@ export function App() {
       setIsStreaming(true)
       setView("article")
       window.scrollTo({ top: 0 })
+      window.history.replaceState(
+        null, "",
+        `?q=${encodeURIComponent(searchQuery)}&mode=${selectedMode}`
+      )
 
       fetchImages(searchQuery, 6).then((imgs) => setImages(imgs))
 
@@ -168,6 +185,7 @@ export function App() {
 
   const handleBack = useCallback(() => {
     abortRef.current?.abort()
+    window.history.replaceState(null, "", window.location.pathname)
     setView("landing")
     setQuery("")
     setReasoning("")

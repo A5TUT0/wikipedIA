@@ -10,6 +10,10 @@ import {
   GraduationCap,
   AlertCircle,
   RefreshCw,
+  Share2,
+  Download,
+  Maximize2,
+  X,
 } from "lucide-react"
 import type { ImageResult } from "@/lib/wikipedia-images"
 import type { InfoboxData } from "@/App"
@@ -31,7 +35,8 @@ interface ArticleStreamProps {
   onSearch?: (query: string) => void
 }
 
-/** Convert a heading title to a slug for id anchors */
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
 function toSlug(text: string): string {
   return text
     .replace(/\*\*/g, "")
@@ -41,7 +46,6 @@ function toSlug(text: string): string {
     .replace(/\s+/g, "-")
 }
 
-/** Render inline markdown (bold, italic) */
 function InlineMarkdown({ text }: { text: string }) {
   const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g)
   return (
@@ -57,7 +61,6 @@ function InlineMarkdown({ text }: { text: string }) {
   )
 }
 
-/** Pulsing skeleton shown while waiting for first content */
 function ArticleSkeleton() {
   return (
     <div className="flex animate-pulse flex-col gap-4">
@@ -74,22 +77,120 @@ function ArticleSkeleton() {
   )
 }
 
-/** Renders streamed markdown content as article HTML */
+// ── Lightbox ──────────────────────────────────────────────────────────────────
+
+function Lightbox({ img, onClose }: { img: ImageResult; onClose: () => void }) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose()
+    }
+    document.addEventListener("keydown", handler)
+    return () => document.removeEventListener("keydown", handler)
+  }, [onClose])
+
+  return (
+    <div
+      className="anim-fade-in fixed inset-0 z-[60] flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+      onMouseDown={onClose}
+    >
+      <div
+        className="relative w-full max-w-5xl overflow-hidden rounded-2xl bg-black shadow-2xl"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-3 top-3 z-10 flex size-8 items-center justify-center rounded-full bg-black/50 text-white/80 backdrop-blur-sm transition-colors hover:bg-black/70 hover:text-white"
+        >
+          <X className="size-4" />
+        </button>
+        <img
+          src={img.original}
+          alt={img.title}
+          className="max-h-[82vh] w-full object-contain"
+          onError={(e) => {
+            const target = e.currentTarget
+            if (target.src !== img.thumbnail) target.src = img.thumbnail
+          }}
+        />
+        {(img.title || img.source) && (
+          <div className="border-t border-white/10 bg-black/70 px-5 py-3">
+            <p className="text-sm text-white/80">
+              {img.title}
+              {img.source && (
+                <span className="ml-2 text-white/40">— {img.source}</span>
+              )}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Article image figure ──────────────────────────────────────────────────────
+
+function ArticleImage({
+  img,
+  onClick,
+  expandLabel,
+}: {
+  img: ImageResult
+  onClick: () => void
+  expandLabel: string
+}) {
+  return (
+    <figure
+      className="group relative mb-5 cursor-zoom-in overflow-hidden rounded-xl shadow-sm transition-shadow duration-200 hover:shadow-lg"
+      onClick={onClick}
+    >
+      <div className="overflow-hidden" style={{ aspectRatio: "16 / 7" }}>
+        <img
+          src={img.original}
+          alt={img.title}
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+          loading="lazy"
+          onError={(e) => {
+            const target = e.currentTarget
+            if (target.src !== img.thumbnail) target.src = img.thumbnail
+          }}
+        />
+      </div>
+      {/* Gradient caption overlay */}
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent px-4 pb-3 pt-10">
+        <p className="text-xs leading-snug text-white/90">
+          {img.title}
+          {img.source && (
+            <span className="ml-1.5 text-white/50">— {img.source}</span>
+          )}
+        </p>
+      </div>
+      {/* Expand hint on hover */}
+      <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+        <div className="flex items-center gap-1.5 rounded-full bg-black/35 px-3 py-1.5 text-xs text-white backdrop-blur-sm">
+          <Maximize2 className="size-3" />
+          {expandLabel}
+        </div>
+      </div>
+    </figure>
+  )
+}
+
+// ── Markdown article renderer ─────────────────────────────────────────────────
+
 function MarkdownArticle({
   content,
   images,
+  onImageClick,
 }: {
   content: string
   images: ImageResult[]
+  onImageClick: (img: ImageResult) => void
 }) {
+  const { t } = useI18n()
   const blocks = useMemo(() => {
     const lines = content.split("\n")
-    const result: {
-      type: string
-      level?: number
-      text: string
-      id?: string
-    }[] = []
+    const result: { type: string; level?: number; text: string; id?: string }[] = []
     let currentParagraph = ""
 
     for (const line of lines) {
@@ -100,7 +201,7 @@ function MarkdownArticle({
           currentParagraph = ""
         }
         const level = hMatch[1].length
-        const text = hMatch[2]
+        const text  = hMatch[2]
         result.push({ type: "heading", level, text, id: toSlug(text) })
         continue
       }
@@ -125,8 +226,7 @@ function MarkdownArticle({
       currentParagraph += (currentParagraph ? " " : "") + line
     }
 
-    if (currentParagraph.trim())
-      result.push({ type: "p", text: currentParagraph.trim() })
+    if (currentParagraph.trim()) result.push({ type: "p", text: currentParagraph.trim() })
     return result
   }, [content])
 
@@ -144,27 +244,11 @@ function MarkdownArticle({
             return (
               <div key={i} className="mt-4">
                 {img && (
-                  <figure className="mb-5 overflow-hidden rounded-lg border border-border/60 bg-muted/30">
-                    <img
-                      src={img.original}
-                      alt={img.title}
-                      className="max-h-72 w-full object-cover"
-                      loading="lazy"
-                      onError={(e) => {
-                        const target = e.currentTarget
-                        if (target.src !== img.thumbnail)
-                          target.src = img.thumbnail
-                      }}
-                    />
-                    <figcaption className="px-3 py-2 text-center text-xs text-muted-foreground">
-                      {img.title}
-                      {img.source && (
-                        <span className="ml-1 italic opacity-70">
-                          — {img.source}
-                        </span>
-                      )}
-                    </figcaption>
-                  </figure>
+                  <ArticleImage
+                    img={img}
+                    onClick={() => onImageClick(img)}
+                    expandLabel={t.article.expandImage}
+                  />
                 )}
                 <div id={block.id} className="scroll-mt-20">
                   <h2 className="mb-2 border-b border-border/50 pb-1.5 font-serif text-[1.4rem] font-semibold text-foreground">
@@ -190,20 +274,14 @@ function MarkdownArticle({
 
         if (block.type === "li") {
           return (
-            <li
-              key={i}
-              className="ml-5 list-disc font-serif text-[0.9375rem] leading-[1.8] text-foreground/90"
-            >
+            <li key={i} className="ml-5 list-disc font-serif text-[0.9375rem] leading-[1.8] text-foreground/90">
               <InlineMarkdown text={block.text} />
             </li>
           )
         }
 
         return (
-          <p
-            key={i}
-            className="font-serif text-[0.9375rem] leading-[1.8] text-foreground/90"
-          >
+          <p key={i} className="font-serif text-[0.9375rem] leading-[1.8] text-foreground/90">
             <InlineMarkdown text={block.text} />
           </p>
         )
@@ -212,22 +290,13 @@ function MarkdownArticle({
   )
 }
 
-/** Wikipedia-style infobox */
-function WikiInfobox({
-  data,
-  image,
-  title,
-}: {
-  data: InfoboxData
-  image?: ImageResult
-  title: string
-}) {
+// ── Wikipedia-style infobox ───────────────────────────────────────────────────
+
+function WikiInfobox({ data, image, title }: { data: InfoboxData; image?: ImageResult; title: string }) {
   return (
     <div className="float-right mb-5 ml-7 w-[270px] shrink-0 overflow-hidden rounded-xl border border-border/70 bg-card text-sm shadow-sm max-lg:float-none max-lg:mx-auto max-lg:mb-6 max-lg:w-full max-lg:max-w-sm">
       <div className="border-b border-border/60 bg-wiki-link/[0.07] px-4 py-2.5 text-center">
-        <h3 className="font-serif text-[0.9375rem] leading-snug font-semibold">
-          {title}
-        </h3>
+        <h3 className="font-serif text-[0.9375rem] font-semibold leading-snug">{title}</h3>
       </div>
       {image && (
         <div className="border-b border-border/60">
@@ -242,9 +311,7 @@ function WikiInfobox({
             }}
           />
           {image.title && (
-            <p className="px-3 py-1.5 text-center text-[11px] text-muted-foreground">
-              {image.title}
-            </p>
+            <p className="px-3 py-1.5 text-center text-[11px] text-muted-foreground">{image.title}</p>
           )}
         </div>
       )}
@@ -252,9 +319,7 @@ function WikiInfobox({
         <tbody>
           {Object.entries(data).map(([key, value]) => (
             <tr key={key} className="border-b border-border/40 last:border-0">
-              <td className="w-[40%] px-3 py-2 align-top font-medium text-muted-foreground">
-                {key}
-              </td>
+              <td className="w-[40%] px-3 py-2 align-top font-medium text-muted-foreground">{key}</td>
               <td className="px-3 py-2 text-foreground/90">{value}</td>
             </tr>
           ))}
@@ -264,11 +329,38 @@ function WikiInfobox({
   )
 }
 
+// ── Meta bar icon button ──────────────────────────────────────────────────────
+
+function MetaBtn({
+  onClick,
+  title,
+  children,
+}: {
+  onClick: () => void
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
+    >
+      {children}
+    </button>
+  )
+}
+
+// ── Mode icons ────────────────────────────────────────────────────────────────
+
 const modeIcons: Record<ArticleMode, typeof Zap> = {
-  rapido: Zap,
-  medio: BookOpen,
+  rapido:    Zap,
+  medio:     BookOpen,
   extendido: GraduationCap,
 }
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 export function ArticleStream({
   title,
@@ -282,13 +374,14 @@ export function ArticleStream({
   onRetry,
   onSearch,
 }: ArticleStreamProps) {
-  const [reasoningOpen, setReasoningOpen] = useState(true)
-  const [copied, setCopied] = useState(false)
   const { t, uiLocale } = useI18n()
-  // Ref for the article body — used by SelectionToolbar to restrict selection scope
+  const [reasoningOpen, setReasoningOpen] = useState(true)
+  const [copied, setCopied]     = useState(false)
+  const [shared, setShared]     = useState(false)
+  const [lightboxImg, setLightboxImg] = useState<ImageResult | null>(null)
   const articleBodyRef = useRef<HTMLDivElement>(null)
-
   const hasClosedReasoning = useRef(false)
+
   useEffect(() => {
     if (content && !hasClosedReasoning.current) {
       hasClosedReasoning.current = true
@@ -302,16 +395,9 @@ export function ArticleStream({
     return match ? match[1].replace(/\*\*/g, "") : title
   }, [content, title])
 
-  // Reading time
   const { wordCount, readingMinutes } = useMemo(() => {
-    const words = content
-      .replace(/[#*`\[\]]/g, "")
-      .split(/\s+/)
-      .filter(Boolean).length
-    return {
-      wordCount: words,
-      readingMinutes: Math.max(1, Math.round(words / 200)),
-    }
+    const words = content.replace(/[#*`[\]]/g, "").split(/\s+/).filter(Boolean).length
+    return { wordCount: words, readingMinutes: Math.max(1, Math.round(words / 200)) }
   }, [content])
 
   function handleCopy() {
@@ -321,16 +407,42 @@ export function ArticleStream({
     })
   }
 
+  function handleShare() {
+    navigator.clipboard.writeText(window.location.href).then(() => {
+      setShared(true)
+      setTimeout(() => setShared(false), 2500)
+    })
+  }
+
+  function handleDownload() {
+    const filename = `${displayTitle.replace(/[/\\?%*:|"<>]/g, "-")}.md`
+    const blob = new Blob([content], { type: "text/markdown;charset=utf-8" })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement("a")
+    a.href     = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
   const ModeIcon = modeIcons[mode]
 
   return (
     <article className="anim-fade-in flex flex-col gap-5 pb-12">
+
+      {/* ── Lightbox ────────────────────────────────────────────────── */}
+      {lightboxImg && (
+        <Lightbox img={lightboxImg} onClose={() => setLightboxImg(null)} />
+      )}
+
       {/* ── Title ───────────────────────────────────────────────────── */}
       <div>
         <h1
           id="top"
           className={cn(
-            "font-serif text-3xl leading-tight font-bold tracking-tight md:text-4xl",
+            "font-serif text-3xl font-bold leading-tight tracking-tight md:text-4xl",
             isStreaming && content.length === 0 && "streaming-cursor"
           )}
         >
@@ -347,17 +459,13 @@ export function ArticleStream({
           {t.landing.modes[mode].label}
         </span>
 
-        {/* Stats (shown only when content exists) */}
+        {/* Stats */}
         {content && !isStreaming && (
           <>
             <span className="opacity-40">·</span>
-            <span>
-              {wordCount.toLocaleString(uiLocale)} {t.article.words}
-            </span>
+            <span>{wordCount.toLocaleString(uiLocale)} {t.article.words}</span>
             <span className="opacity-40">·</span>
-            <span>
-              ~{readingMinutes} {t.article.readingTime}
-            </span>
+            <span>~{readingMinutes} {t.article.readingTime}</span>
           </>
         )}
         {isStreaming && content && (
@@ -370,26 +478,30 @@ export function ArticleStream({
           </>
         )}
 
-        {/* Copy button (only when article is done) */}
+        {/* Action buttons */}
         {content && !isStreaming && (
-          <button
-            type="button"
-            onClick={handleCopy}
-            className="ml-auto flex items-center gap-1.5 rounded-md px-2 py-1 transition-colors hover:bg-muted/60 hover:text-foreground"
-            title={t.article.copy}
-          >
-            {copied ? (
-              <>
-                <Check className="size-3 text-green-500" />
-                <span className="text-green-500">{t.article.copied}</span>
-              </>
-            ) : (
-              <>
-                <Copy className="size-3" />
-                <span>{t.article.copy}</span>
-              </>
-            )}
-          </button>
+          <div className="ml-auto flex items-center gap-0.5">
+            <MetaBtn
+              onClick={handleShare}
+              title={shared ? t.article.shared : t.article.share}
+            >
+              {shared
+                ? <Check className="size-3.5 text-green-500" />
+                : <Share2 className="size-3.5" />}
+            </MetaBtn>
+            <MetaBtn onClick={handleDownload} title={t.article.download}>
+              <Download className="size-3.5" />
+            </MetaBtn>
+            <div className="mx-1 h-3.5 w-px shrink-0 bg-border/60" />
+            <MetaBtn
+              onClick={handleCopy}
+              title={copied ? t.article.copied : t.article.copy}
+            >
+              {copied
+                ? <Check className="size-3.5 text-green-500" />
+                : <Copy className="size-3.5" />}
+            </MetaBtn>
+          </div>
         )}
       </div>
 
@@ -402,17 +514,13 @@ export function ArticleStream({
             className="flex w-full items-center gap-2.5 px-4 py-3 text-left transition-colors hover:bg-muted/50"
           >
             <Brain className="size-4 shrink-0 text-wiki-link" />
-            <span className="text-sm font-medium text-muted-foreground">
-              {t.article.aiThinking}
-            </span>
+            <span className="text-sm font-medium text-muted-foreground">{t.article.aiThinking}</span>
             {isStreaming && !content && (
               <span className="ml-1 inline-block size-1.5 animate-pulse rounded-full bg-wiki-link" />
             )}
-            {reasoningOpen ? (
-              <ChevronUp className="ml-auto size-4 text-muted-foreground/60" />
-            ) : (
-              <ChevronDown className="ml-auto size-4 text-muted-foreground/60" />
-            )}
+            {reasoningOpen
+              ? <ChevronUp className="ml-auto size-4 text-muted-foreground/60" />
+              : <ChevronDown className="ml-auto size-4 text-muted-foreground/60" />}
           </button>
           {reasoningOpen && (
             <div className="max-h-56 overflow-y-auto border-t border-border/50 px-4 py-3 text-[0.8125rem] leading-relaxed text-muted-foreground">
@@ -429,9 +537,7 @@ export function ArticleStream({
           <div className="flex items-start gap-3">
             <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
             <div className="flex flex-col gap-2">
-              <p className="text-sm font-medium text-destructive">
-                {t.article.errorTitle}
-              </p>
+              <p className="text-sm font-medium text-destructive">{t.article.errorTitle}</p>
               <p className="text-xs text-muted-foreground">{error}</p>
               <button
                 type="button"
@@ -453,16 +559,13 @@ export function ArticleStream({
       {(content || infobox) && (
         <div ref={articleBodyRef} className="overflow-hidden">
           {infobox && (
-            <WikiInfobox
-              data={infobox}
-              image={images[0]}
-              title={displayTitle}
-            />
+            <WikiInfobox data={infobox} image={images[0]} title={displayTitle} />
           )}
           {content && (
             <MarkdownArticle
               content={content}
               images={infobox ? images.slice(1) : images}
+              onImageClick={setLightboxImg}
             />
           )}
         </div>
@@ -473,7 +576,7 @@ export function ArticleStream({
         <span className="streaming-cursor inline-block w-fit" />
       )}
 
-      {/* ── Selection toolbar (only when article is done) ───────────── */}
+      {/* ── Selection toolbar ───────────────────────────────────────── */}
       {!isStreaming && content && (
         <SelectionToolbar containerRef={articleBodyRef} onSearch={onSearch} />
       )}

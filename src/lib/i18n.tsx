@@ -73,6 +73,10 @@ const translations = {
       errorRetry: "Intentar de nuevo",
       copy: "Copiar",
       copied: "Copiado",
+      share: "Compartir",
+      shared: "¡Enlace copiado!",
+      download: "Descargar",
+      expandImage: "Ver imagen",
     },
     app: {
       navigation: "Navegación",
@@ -153,6 +157,10 @@ const translations = {
       errorRetry: "Try again",
       copy: "Copy",
       copied: "Copied",
+      share: "Share",
+      shared: "Link copied!",
+      download: "Download",
+      expandImage: "View image",
     },
     app: {
       navigation: "Navigation",
