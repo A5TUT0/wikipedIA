@@ -1,8 +1,8 @@
 import { Search, Moon, Sun, Menu, ArrowLeft } from "lucide-react"
-import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/components/theme-provider"
-import { useState, type FormEvent } from "react"
+import { useState, type FormEvent, useRef, useEffect } from "react"
+import { cn } from "@/lib/utils"
 
 interface HeaderProps {
   mode: "landing" | "article"
@@ -21,6 +21,13 @@ export function Header({
 }: HeaderProps) {
   const { theme, setTheme } = useTheme()
   const [query, setQuery] = useState(currentQuery ?? "")
+  const [focused, setFocused] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // Sync when currentQuery changes (new search from landing)
+  useEffect(() => {
+    setQuery(currentQuery ?? "")
+  }, [currentQuery])
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -29,51 +36,64 @@ export function Header({
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-4 px-4">
+    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/90 backdrop-blur-md supports-[backdrop-filter]:bg-background/75">
+      <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-3 px-4">
+        {/* Mobile menu button (article only) */}
         {mode === "article" && (
-          <>
-            {/* Mobile menu button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="lg:hidden"
-              onClick={onMenuToggle}
-            >
-              <Menu data-icon="inline-start" />
-              <span className="sr-only">Toggle menu</span>
-            </Button>
-          </>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="shrink-0 lg:hidden"
+            onClick={onMenuToggle}
+            aria-label="Abrir menú"
+          >
+            <Menu className="size-4" />
+          </Button>
         )}
 
         {/* Logo */}
         <button
           type="button"
           onClick={onBack}
-          className="flex shrink-0 items-center gap-2"
+          className="group flex shrink-0 items-center gap-1.5 transition-opacity hover:opacity-80"
+          aria-label="Volver al inicio"
         >
           {mode === "article" && (
-            <ArrowLeft className="size-4 text-muted-foreground" />
+            <ArrowLeft className="size-3.5 text-muted-foreground transition-transform group-hover:-translate-x-0.5" />
           )}
-          <span className="font-serif text-xl font-bold tracking-tight">
+          <span className="font-serif text-xl leading-none font-bold tracking-tight">
             Wikiped<span className="text-wiki-link">IA</span>
           </span>
         </button>
 
-        {/* Search bar (only in article mode) */}
+        {/* Search bar (article mode only) */}
         {mode === "article" && (
-          <form
-            onSubmit={handleSubmit}
-            className="relative mx-auto w-full max-w-lg"
-          >
-            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Buscar en WikipedIA..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="pl-9"
-            />
+          <form onSubmit={handleSubmit} className="mx-auto w-full max-w-lg">
+            <div
+              className={cn(
+                "flex items-center gap-2 rounded-lg border bg-background px-3 py-1.5 transition-all duration-200",
+                focused
+                  ? "border-wiki-link/50 shadow-[0_0_0_3px_rgba(51,102,204,0.08)]"
+                  : "border-border/70 hover:border-border"
+              )}
+            >
+              <Search
+                className={cn(
+                  "size-3.5 shrink-0 transition-colors",
+                  focused ? "text-wiki-link" : "text-muted-foreground"
+                )}
+              />
+              <input
+                ref={inputRef}
+                type="search"
+                placeholder="Buscar en WikipedIA..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onFocus={() => setFocused(true)}
+                onBlur={() => setFocused(false)}
+                className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
+              />
+            </div>
           </form>
         )}
 
@@ -84,10 +104,11 @@ export function Header({
           variant="ghost"
           size="icon"
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          className="shrink-0"
+          aria-label="Cambiar tema"
         >
-          <Sun className="hidden dark:block" data-icon="inline-start" />
-          <Moon className="block dark:hidden" data-icon="inline-start" />
-          <span className="sr-only">Cambiar tema</span>
+          <Sun className="hidden size-4 dark:block" />
+          <Moon className="block size-4 dark:hidden" />
         </Button>
       </div>
     </header>

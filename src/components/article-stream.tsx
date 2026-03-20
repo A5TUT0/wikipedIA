@@ -1,9 +1,9 @@
 import { useMemo, useEffect, useRef } from "react"
-import { Separator } from "@/components/ui/separator"
 import { Brain, ChevronDown, ChevronUp } from "lucide-react"
 import { useState } from "react"
 import type { ImageResult } from "@/lib/wikipedia-images"
 import type { InfoboxData } from "@/App"
+import { cn } from "@/lib/utils"
 
 interface ArticleStreamProps {
   title: string
@@ -22,6 +22,24 @@ function toSlug(text: string): string {
     .toLowerCase()
     .replace(/[^\w\sáéíóúñü]/g, "")
     .replace(/\s+/g, "-")
+}
+
+/** Render inline markdown (bold, italic) */
+function InlineMarkdown({ text }: { text: string }) {
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g)
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (part.startsWith("**") && part.endsWith("**")) {
+          return <strong key={i}>{part.slice(2, -2)}</strong>
+        }
+        if (part.startsWith("*") && part.endsWith("*")) {
+          return <em key={i}>{part.slice(1, -1)}</em>
+        }
+        return <span key={i}>{part}</span>
+      })}
+    </>
+  )
 }
 
 /** Renders streamed markdown content as article HTML */
@@ -43,7 +61,6 @@ function MarkdownArticle({
     let currentParagraph = ""
 
     for (const line of lines) {
-      // Headings
       const hMatch = line.match(/^(#{1,3})\s+(.+)/)
       if (hMatch) {
         if (currentParagraph.trim()) {
@@ -52,16 +69,10 @@ function MarkdownArticle({
         }
         const level = hMatch[1].length
         const text = hMatch[2]
-        result.push({
-          type: "heading",
-          level,
-          text,
-          id: toSlug(text),
-        })
+        result.push({ type: "heading", level, text, id: toSlug(text) })
         continue
       }
 
-      // Empty line = paragraph break
       if (line.trim() === "") {
         if (currentParagraph.trim()) {
           result.push({ type: "p", text: currentParagraph.trim() })
@@ -70,7 +81,6 @@ function MarkdownArticle({
         continue
       }
 
-      // List item
       if (line.match(/^[-*]\s+/)) {
         if (currentParagraph.trim()) {
           result.push({ type: "p", text: currentParagraph.trim() })
@@ -80,7 +90,6 @@ function MarkdownArticle({
         continue
       }
 
-      // Continue paragraph
       currentParagraph += (currentParagraph ? " " : "") + line
     }
 
@@ -91,56 +100,57 @@ function MarkdownArticle({
     return result
   }, [content])
 
-  // Track which image to show next — insert after every ## heading section
   let imageIndex = 0
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="article-prose flex flex-col gap-3">
       {blocks.map((block, i) => {
         if (block.type === "heading") {
-          if (block.level === 1) {
-            return null // We render title separately
-          }
+          if (block.level === 1) return null
+
           if (block.level === 2) {
             const img = images[imageIndex]
             imageIndex++
             return (
-              <div key={i}>
+              <div key={i} className="mt-4">
                 {img && (
-                  <figure className="my-4 flex flex-col items-center gap-2">
+                  <figure className="mb-5 overflow-hidden rounded-lg border border-border/60 bg-muted/30">
                     <img
                       src={img.original}
                       alt={img.title}
-                      className="max-h-64 rounded-md border object-cover"
+                      className="max-h-72 w-full object-cover"
                       loading="lazy"
                       onError={(e) => {
-                        // Fallback to thumbnail if original fails
                         const target = e.currentTarget
-                        if (target.src !== img.thumbnail) {
+                        if (target.src !== img.thumbnail)
                           target.src = img.thumbnail
-                        }
                       }}
                     />
-                    <figcaption className="text-center text-xs text-muted-foreground">
-                      {img.title} — <span className="italic">{img.source}</span>
+                    <figcaption className="px-3 py-2 text-center text-xs text-muted-foreground">
+                      {img.title}
+                      {img.source && (
+                        <span className="ml-1 italic opacity-70">
+                          — {img.source}
+                        </span>
+                      )}
                     </figcaption>
                   </figure>
                 )}
                 <div id={block.id} className="scroll-mt-20">
-                  <h2 className="mb-1 font-serif text-2xl font-semibold">
+                  <h2 className="mb-2 border-b border-border/50 pb-1.5 font-serif text-[1.4rem] font-semibold text-foreground">
                     <InlineMarkdown text={block.text} />
                   </h2>
-                  <Separator className="mb-2" />
                 </div>
               </div>
             )
           }
+
           if (block.level === 3) {
             return (
               <h3
                 key={i}
                 id={block.id}
-                className="scroll-mt-20 font-serif text-xl font-medium"
+                className="mt-2 scroll-mt-20 font-serif text-[1.15rem] font-semibold text-foreground/90"
               >
                 <InlineMarkdown text={block.text} />
               </h3>
@@ -152,7 +162,7 @@ function MarkdownArticle({
           return (
             <li
               key={i}
-              className="ml-4 list-disc font-serif text-base leading-relaxed"
+              className="ml-5 list-disc font-serif text-[0.9375rem] leading-[1.8] text-foreground/90"
             >
               <InlineMarkdown text={block.text} />
             </li>
@@ -160,7 +170,10 @@ function MarkdownArticle({
         }
 
         return (
-          <p key={i} className="font-serif text-base leading-relaxed">
+          <p
+            key={i}
+            className="font-serif text-[0.9375rem] leading-[1.8] text-foreground/90"
+          >
             <InlineMarkdown text={block.text} />
           </p>
         )
@@ -169,26 +182,7 @@ function MarkdownArticle({
   )
 }
 
-/** Render inline markdown (bold, links) */
-function InlineMarkdown({ text }: { text: string }) {
-  // Process **bold** and *italic*
-  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g)
-  return (
-    <>
-      {parts.map((part, i) => {
-        if (part.startsWith("**") && part.endsWith("**")) {
-          return <strong key={i}>{part.slice(2, -2)}</strong>
-        }
-        if (part.startsWith("*") && part.endsWith("*")) {
-          return <em key={i}>{part.slice(1, -1)}</em>
-        }
-        return <span key={i}>{part}</span>
-      })}
-    </>
-  )
-}
-
-/** Wikipedia-style infobox rendered on the right side */
+/** Wikipedia-style infobox */
 function WikiInfobox({
   data,
   image,
@@ -199,42 +193,44 @@ function WikiInfobox({
   title: string
 }) {
   return (
-    <div className="float-right mb-4 ml-6 w-[280px] shrink-0 rounded border border-border bg-secondary/30 max-lg:float-none max-lg:mx-auto max-lg:mb-6 max-lg:w-full max-lg:max-w-sm">
-      {/* Infobox header */}
-      <div className="border-b bg-wiki-link/10 px-4 py-3 text-center">
-        <h3 className="font-serif text-lg font-semibold">{title}</h3>
+    <div className="float-right mb-5 ml-7 w-[270px] shrink-0 overflow-hidden rounded-xl border border-border/70 bg-card text-sm shadow-sm max-lg:float-none max-lg:mx-auto max-lg:mb-6 max-lg:w-full max-lg:max-w-sm">
+      {/* Header */}
+      <div className="border-b border-border/60 bg-wiki-link/[0.07] px-4 py-2.5 text-center">
+        <h3 className="font-serif text-[0.9375rem] leading-snug font-semibold">
+          {title}
+        </h3>
       </div>
 
       {/* Image */}
       {image && (
-        <div className="flex flex-col items-center border-b px-4 py-3">
+        <div className="border-b border-border/60">
           <img
             src={image.original}
             alt={image.title}
-            className="max-h-48 rounded object-cover"
+            className="h-44 w-full object-cover"
             loading="lazy"
             onError={(e) => {
               const target = e.currentTarget
-              if (target.src !== image.thumbnail) {
-                target.src = image.thumbnail
-              }
+              if (target.src !== image.thumbnail) target.src = image.thumbnail
             }}
           />
-          <span className="mt-1 text-center text-[11px] text-muted-foreground">
-            {image.title}
-          </span>
+          {image.title && (
+            <p className="px-3 py-1.5 text-center text-[11px] text-muted-foreground">
+              {image.title}
+            </p>
+          )}
         </div>
       )}
 
       {/* Key-value rows */}
-      <table className="w-full text-sm">
+      <table className="w-full text-[0.8125rem]">
         <tbody>
           {Object.entries(data).map(([key, value]) => (
-            <tr key={key} className="border-b border-border/50 last:border-0">
-              <td className="px-3 py-2 font-medium text-muted-foreground">
+            <tr key={key} className="border-b border-border/40 last:border-0">
+              <td className="w-[40%] px-3 py-2 align-top font-medium text-muted-foreground">
                 {key}
               </td>
-              <td className="px-3 py-2">{value}</td>
+              <td className="px-3 py-2 text-foreground/90">{value}</td>
             </tr>
           ))}
         </tbody>
@@ -253,7 +249,6 @@ export function ArticleStream({
 }: ArticleStreamProps) {
   const [reasoningOpen, setReasoningOpen] = useState(true)
 
-  // Auto-close reasoning panel when content starts arriving
   const hasClosedReasoning = useRef(false)
   useEffect(() => {
     if (content && !hasClosedReasoning.current) {
@@ -265,49 +260,50 @@ export function ArticleStream({
     }
   }, [content, reasoning])
 
-  // Extract H1 from content if present, otherwise use title
   const displayTitle = useMemo(() => {
     const match = content.match(/^#\s+(.+)/)
     return match ? match[1].replace(/\*\*/g, "") : title
   }, [content, title])
 
   return (
-    <article className="flex flex-col gap-6">
-      {/* Title */}
+    <article className="anim-fade-in flex flex-col gap-5 pb-12">
+      {/* ── Title ─────────────────────────────────────────────────────── */}
       <div>
         <h1
-          className="font-serif text-3xl leading-tight font-bold md:text-4xl"
           id="top"
+          className={cn(
+            "font-serif text-3xl leading-tight font-bold tracking-tight md:text-4xl",
+            isStreaming && content.length === 0 && "streaming-cursor"
+          )}
         >
           {displayTitle}
-          {isStreaming && content.length === 0 && (
-            <span className="streaming-cursor" />
-          )}
         </h1>
-        <Separator className="mt-3" />
+        <div className="mt-3 h-px w-full bg-linear-to-r from-border via-border/60 to-transparent" />
       </div>
 
-      {/* AI Reasoning panel */}
+      {/* ── AI Reasoning panel ────────────────────────────────────────── */}
       {reasoning && (
-        <div className="rounded-lg border bg-secondary/50">
+        <div className="overflow-hidden rounded-xl border border-border/60 bg-muted/30">
           <button
             type="button"
             onClick={() => setReasoningOpen(!reasoningOpen)}
-            className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            className="flex w-full items-center gap-2.5 px-4 py-3 text-left transition-colors hover:bg-muted/50"
           >
-            <Brain className="size-4 text-wiki-link" />
-            <span>Pensamiento de la IA</span>
+            <Brain className="size-4 shrink-0 text-wiki-link" />
+            <span className="text-sm font-medium text-muted-foreground">
+              Pensamiento de la IA
+            </span>
             {isStreaming && !content && (
-              <span className="ml-1 inline-block size-2 animate-pulse rounded-full bg-wiki-link" />
+              <span className="ml-1 inline-block size-1.5 animate-pulse rounded-full bg-wiki-link" />
             )}
             {reasoningOpen ? (
-              <ChevronUp className="ml-auto size-4" />
+              <ChevronUp className="ml-auto size-4 text-muted-foreground/60" />
             ) : (
-              <ChevronDown className="ml-auto size-4" />
+              <ChevronDown className="ml-auto size-4 text-muted-foreground/60" />
             )}
           </button>
           {reasoningOpen && (
-            <div className="max-h-60 overflow-y-auto border-t px-4 py-3 text-sm leading-relaxed text-muted-foreground">
+            <div className="max-h-56 overflow-y-auto border-t border-border/50 px-4 py-3 text-[0.8125rem] leading-relaxed text-muted-foreground">
               {reasoning}
               {isStreaming && !content && <span className="streaming-cursor" />}
             </div>
@@ -315,9 +311,9 @@ export function ArticleStream({
         </div>
       )}
 
-      {/* Article content with infobox */}
+      {/* ── Article body ──────────────────────────────────────────────── */}
       {(content || infobox) && (
-        <div>
+        <div className="overflow-hidden">
           {infobox && (
             <WikiInfobox
               data={infobox}
@@ -334,7 +330,7 @@ export function ArticleStream({
         </div>
       )}
 
-      {/* Streaming cursor at the end */}
+      {/* ── Trailing cursor ───────────────────────────────────────────── */}
       {isStreaming && content && (
         <span className="streaming-cursor inline-block w-fit" />
       )}

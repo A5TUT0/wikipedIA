@@ -156,16 +156,16 @@ export function App() {
       </Sheet>
 
       {/* Main layout */}
-      <div className="mx-auto flex w-full max-w-[1400px] flex-1 gap-6 px-4 py-6">
+      <div className="mx-auto flex w-full max-w-[1200px] flex-1 gap-8 px-4 py-8">
         {/* Left column: Table of Contents (desktop) */}
-        <aside className="hidden w-[220px] shrink-0 lg:block">
+        <aside className="hidden w-[200px] shrink-0 lg:block">
           <div className="sticky top-20">
             <TableOfContents items={tocItems} />
           </div>
         </aside>
 
         {/* Center column: Article */}
-        <main className="min-w-0 flex-1">
+        <main className="max-w-3xl min-w-0 flex-1">
           <ArticleStream
             title={query}
             reasoning={reasoning}
