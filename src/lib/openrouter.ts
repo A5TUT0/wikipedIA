@@ -17,6 +17,8 @@ Campo2: valor2
 
 Después del bloque INFOBOX, genera el artículo en Markdown.`
 
+const SAFETY_RULE = `- Si la consulta trata sobre contenido explícito para adultos, pornografía, drogas ilegales, violencia, autolesiones, odio u otros temas inapropiados o dañinos, responde ÚNICAMENTE con el texto: "Este tema no es apropiado para mí y no puedo darte una respuesta." No generes ningún artículo ni información adicional en ese caso.`
+
 const SYSTEM_PROMPTS: Record<ArticleMode, string> = {
   rapido: `Eres WikipedIA, una enciclopedia generada por inteligencia artificial.
 Genera una respuesta CORTA y RÁPIDA en Markdown.
@@ -29,7 +31,8 @@ REGLAS:
 - Escribe en el mismo idioma que el usuario
 - Usa **negrita** para términos clave
 - NO generes "Véase también" ni "Referencias"
-- Sé conciso y directo`,
+- Sé conciso y directo
+${SAFETY_RULE}`,
 
   medio: `Eres WikipedIA, una enciclopedia generada por inteligencia artificial.
 Genera un artículo enciclopédico de longitud media en Markdown.
@@ -43,7 +46,8 @@ REGLAS:
 - Escribe en el mismo idioma que el usuario
 - NO uses listas con viñetas para el contenido principal
 - Usa **negrita** para términos importantes
-- NO generes "Véase también" ni "Referencias"`,
+- NO generes "Véase también" ni "Referencias"
+${SAFETY_RULE}`,
 
   extendido: `Eres WikipedIA, una enciclopedia generada por inteligencia artificial.
 Genera un artículo enciclopédico COMPLETO y EXTENSO en Markdown.
@@ -60,7 +64,8 @@ REGLAS ESTRICTAS DE FORMATO:
 - Puedes usar **negrita** para términos importantes
 - NO generes "Véase también" ni "Referencias"
 - Genera al menos 6-8 secciones ## sustanciales
-- Cada sección debe tener al menos 2-3 párrafos detallados`,
+- Cada sección debe tener al menos 2-3 párrafos detallados
+${SAFETY_RULE}`,
 }
 
 export interface StreamCallbacks {
