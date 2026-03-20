@@ -1,4 +1,10 @@
-import { useCallback, useMemo, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { Header } from "@/components/header"
 import {
   TableOfContents,
@@ -10,6 +16,8 @@ import { Footer } from "@/components/footer"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { streamArticle, type ArticleMode } from "@/lib/openrouter"
 import { fetchImages, type ImageResult } from "@/lib/wikipedia-images"
+import { ArrowUp } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 export type InfoboxData = Record<string, string>
 
@@ -20,7 +28,6 @@ function extractInfobox(raw: string): {
 } {
   const match = raw.match(/\[INFOBOX\]\n?([\s\S]*?)\[\/INFOBOX\]\n?/)
   if (!match) {
-    // If infobox is still streaming
     if (raw.startsWith("[INFOBOX]") && !raw.includes("[/INFOBOX]")) {
       return { infobox: null, cleanContent: "" }
     }
@@ -48,28 +55,72 @@ function extractInfobox(raw: string): {
 type AppView = "landing" | "article"
 
 export function App() {
-  const [view, setView] = useState<AppView>("landing")
-  const [query, setQuery] = useState("")
-  const [reasoning, setReasoning] = useState("")
-  const [content, setContent] = useState("")
-  const [images, setImages] = useState<ImageResult[]>([])
+  const [view, setView]             = useState<AppView>("landing")
+  const [query, setQuery]           = useState("")
+  const [reasoning, setReasoning]   = useState("")
+  const [content, setContent]       = useState("")
+  const [images, setImages]         = useState<ImageResult[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
+  const [error, setError]           = useState<string | null>(null)
+  const [currentMode, setCurrentMode] = useState<ArticleMode>("medio")
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  // Derive infobox data and clean content from raw content
+  // Scroll state for reading progress + back-to-top
+  const [readingProgress, setReadingProgress] = useState(0)
+  const [showBackToTop, setShowBackToTop]     = useState(false)
+
+  // Trigger to focus header search (Cmd/Ctrl+K)
+  const [searchFocusTrigger, setSearchFocusTrigger] = useState(0)
+
+  const abortRef = useRef<AbortController | null>(null)
+
   const { infobox, cleanContent } = useMemo(
     () => extractInfobox(content),
     [content]
   )
   const tocItems = useMemo(() => extractToc(cleanContent), [cleanContent])
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [currentMode, setCurrentMode] = useState<ArticleMode>("medio")
-  const abortRef = useRef<AbortController | null>(null)
 
+  // ── Scroll listener (article only) ──────────────────────────────────
+  useEffect(() => {
+    if (view !== "article") return
+
+    const handleScroll = () => {
+      const scrollTop  = window.scrollY
+      const docHeight  = document.documentElement.scrollHeight - window.innerHeight
+      setReadingProgress(docHeight > 0 ? Math.min(100, (scrollTop / docHeight) * 100) : 0)
+      setShowBackToTop(scrollTop > 400)
+    }
+
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [view])
+
+  // Reset scroll state when leaving article
+  useEffect(() => {
+    if (view === "landing") {
+      setReadingProgress(0)
+      setShowBackToTop(false)
+    }
+  }, [view])
+
+  // ── Cmd/Ctrl+K → focus header search ────────────────────────────────
+  useEffect(() => {
+    if (view !== "article") return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault()
+        setSearchFocusTrigger((t) => t + 1)
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [view])
+
+  // ── Core search handler ──────────────────────────────────────────────
   const handleSearch = useCallback(
     async (searchQuery: string, mode?: ArticleMode) => {
       const selectedMode = mode ?? currentMode
 
-      // Abort any previous request
       abortRef.current?.abort()
       const controller = new AbortController()
       abortRef.current = controller
@@ -79,13 +130,12 @@ export function App() {
       setReasoning("")
       setContent("")
       setImages([])
+      setError(null)
       setIsStreaming(true)
       setView("article")
+      window.scrollTo({ top: 0 })
 
-      // Fetch images from Wikipedia in parallel with the article stream
-      fetchImages(searchQuery, 6).then((imgs) => {
-        setImages(imgs)
-      })
+      fetchImages(searchQuery, 6).then((imgs) => setImages(imgs))
 
       let fullContent = ""
 
@@ -93,20 +143,10 @@ export function App() {
         searchQuery,
         selectedMode,
         {
-          onReasoning(chunk) {
-            setReasoning((prev) => prev + chunk)
-          },
-          onContent(chunk) {
-            fullContent += chunk
-            setContent(fullContent)
-          },
-          onDone() {
-            setIsStreaming(false)
-          },
-          onError(error) {
-            setIsStreaming(false)
-            setContent(fullContent + `\n\n---\n\n**Error:** ${error}`)
-          },
+          onReasoning(chunk) { setReasoning((prev) => prev + chunk) },
+          onContent(chunk)   { fullContent += chunk; setContent(fullContent) },
+          onDone()           { setIsStreaming(false) },
+          onError(err)       { setIsStreaming(false); setError(err) },
         },
         controller.signal
       )
@@ -122,29 +162,40 @@ export function App() {
     setContent("")
     setImages([])
     setIsStreaming(false)
+    setError(null)
   }, [])
 
+  const handleRetry = useCallback(() => {
+    handleSearch(query, currentMode)
+  }, [handleSearch, query, currentMode])
+
+  // ── Landing view ─────────────────────────────────────────────────────
   if (view === "landing") {
     return (
       <div className="flex h-svh flex-col overflow-hidden">
         <Header mode="landing" onBack={handleBack} />
         <Landing onSearch={handleSearch} initialMode={currentMode} />
-        <footer className="py-4 text-center text-xs text-muted-foreground">
-          Contenido generado por IA · Hosting por{" "}
-          <span className="font-medium text-foreground">CubePath</span>
-        </footer>
+        <Footer />
       </div>
     )
   }
 
+  // ── Article view ──────────────────────────────────────────────────────
   return (
     <div className="flex min-h-svh flex-col">
+      {/* Reading progress bar */}
+      <div
+        className="fixed top-0 left-0 z-50 h-[2px] bg-wiki-link transition-all duration-100"
+        style={{ width: `${readingProgress}%` }}
+      />
+
       <Header
         mode="article"
         onMenuToggle={() => setMobileMenuOpen(true)}
         onSearch={(q) => handleSearch(q, currentMode)}
         onBack={handleBack}
         currentQuery={query}
+        focusTrigger={searchFocusTrigger}
       />
 
       {/* Mobile sidebar sheet */}
@@ -157,27 +208,45 @@ export function App() {
 
       {/* Main layout */}
       <div className="mx-auto flex w-full max-w-[1200px] flex-1 gap-8 px-4 py-8">
-        {/* Left column: Table of Contents (desktop) */}
+        {/* Left: Table of Contents (desktop) */}
         <aside className="hidden w-[200px] shrink-0 lg:block">
           <div className="sticky top-20">
             <TableOfContents items={tocItems} />
           </div>
         </aside>
 
-        {/* Center column: Article */}
-        <main className="max-w-3xl min-w-0 flex-1">
+        {/* Center: Article */}
+        <main className="min-w-0 max-w-3xl flex-1">
           <ArticleStream
             title={query}
+            mode={currentMode}
             reasoning={reasoning}
             content={cleanContent}
             isStreaming={isStreaming}
             images={images}
             infobox={infobox}
+            error={error}
+            onRetry={handleRetry}
           />
         </main>
       </div>
 
       <Footer />
+
+      {/* Back to top button */}
+      <button
+        type="button"
+        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        aria-label="Volver arriba"
+        className={cn(
+          "fixed bottom-6 right-6 z-40 flex size-10 items-center justify-center rounded-full border border-border/60 bg-background shadow-md transition-all duration-200 hover:border-wiki-link/50 hover:text-wiki-link",
+          showBackToTop
+            ? "translate-y-0 opacity-100"
+            : "translate-y-4 pointer-events-none opacity-0"
+        )}
+      >
+        <ArrowUp className="size-4" />
+      </button>
     </div>
   )
 }

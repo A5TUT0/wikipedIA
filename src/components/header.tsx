@@ -10,6 +10,8 @@ interface HeaderProps {
   onSearch?: (query: string) => void
   onBack?: () => void
   currentQuery?: string
+  /** Increment this to programmatically focus the search input (e.g. Cmd+K) */
+  focusTrigger?: number
 }
 
 export function Header({
@@ -18,16 +20,23 @@ export function Header({
   onSearch,
   onBack,
   currentQuery,
+  focusTrigger,
 }: HeaderProps) {
   const { theme, setTheme } = useTheme()
-  const [query, setQuery] = useState(currentQuery ?? "")
+  const [query, setQuery]   = useState(currentQuery ?? "")
   const [focused, setFocused] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Sync when currentQuery changes (new search from landing)
+  // Sync query when parent changes it (new article loaded)
+  useEffect(() => { setQuery(currentQuery ?? "") }, [currentQuery])
+
+  // Focus search when Cmd+K is triggered from parent
   useEffect(() => {
-    setQuery(currentQuery ?? "")
-  }, [currentQuery])
+    if (focusTrigger && mode === "article") {
+      inputRef.current?.focus()
+      inputRef.current?.select()
+    }
+  }, [focusTrigger, mode])
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -38,6 +47,7 @@ export function Header({
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/90 backdrop-blur-md supports-[backdrop-filter]:bg-background/75">
       <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-3 px-4">
+
         {/* Mobile menu button (article only) */}
         {mode === "article" && (
           <Button
@@ -61,7 +71,7 @@ export function Header({
           {mode === "article" && (
             <ArrowLeft className="size-3.5 text-muted-foreground transition-transform group-hover:-translate-x-0.5" />
           )}
-          <span className="font-serif text-xl leading-none font-bold tracking-tight">
+          <span className="font-serif text-xl font-bold leading-none tracking-tight">
             Wikiped<span className="text-wiki-link">IA</span>
           </span>
         </button>
@@ -86,13 +96,17 @@ export function Header({
               <input
                 ref={inputRef}
                 type="search"
-                placeholder="Buscar en WikipedIA..."
+                placeholder="Buscar en WikipedIA…"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onFocus={() => setFocused(true)}
                 onBlur={() => setFocused(false)}
                 className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
               />
+              {/* Keyboard hint */}
+              <kbd className="hidden items-center gap-0.5 rounded border border-border/50 px-1.5 py-0.5 text-[10px] text-muted-foreground/50 sm:flex">
+                <span className="text-[11px]">⌘</span>K
+              </kbd>
             </div>
           </form>
         )}
