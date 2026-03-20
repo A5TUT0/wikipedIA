@@ -3,37 +3,27 @@ import { Button } from "@/components/ui/button"
 import { useState, type FormEvent, useRef, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import type { ArticleMode } from "@/lib/openrouter"
+import { useI18n } from "@/lib/i18n"
 
 interface LandingProps {
   onSearch: (query: string, mode: ArticleMode) => void
   initialMode?: ArticleMode
 }
 
-const modes: {
-  value: ArticleMode
-  label: string
-  desc: string
-  icon: typeof Zap
-}[] = [
-  { value: "rapido",    label: "Rápido",    desc: "Breve y directo",           icon: Zap          },
-  { value: "medio",     label: "Medio",     desc: "Con buen detalle",          icon: BookOpen     },
-  { value: "extendido", label: "Extendido", desc: "Estilo Wikipedia completo", icon: GraduationCap },
-]
-
-const SUGGESTIONS = [
-  "Inteligencia Artificial",
-  "Agujeros Negros",
-  "Historia de Roma",
-  "Computación Cuántica",
-  "Fotosíntesis",
-  "Relatividad General",
-]
+const MODE_ICONS: Record<ArticleMode, typeof Zap> = {
+  rapido: Zap,
+  medio: BookOpen,
+  extendido: GraduationCap,
+}
 
 const STORAGE_KEY = "wikia-recent-searches"
 
 function loadRecent(): string[] {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]") }
-  catch { return [] }
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]")
+  } catch {
+    return []
+  }
 }
 
 function saveRecent(query: string, current: string[]): string[] {
@@ -43,13 +33,16 @@ function saveRecent(query: string, current: string[]): string[] {
 }
 
 export function Landing({ onSearch, initialMode = "medio" }: LandingProps) {
-  const [query, setQuery]   = useState("")
-  const [mode, setMode]     = useState<ArticleMode>(initialMode)
+  const { t } = useI18n()
+  const [query, setQuery] = useState("")
+  const [mode, setMode] = useState<ArticleMode>(initialMode)
   const [focused, setFocused] = useState(false)
   const [recentSearches, setRecentSearches] = useState<string[]>(loadRecent)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => { inputRef.current?.focus() }, [])
+  useEffect(() => {
+    inputRef.current?.focus()
+  }, [])
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -69,38 +62,43 @@ export function Landing({ onSearch, initialMode = "medio" }: LandingProps) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
   }
 
+  const articleModes: ArticleMode[] = ["rapido", "medio", "extendido"]
+
   return (
     <main className="relative flex flex-1 flex-col items-center justify-center overflow-hidden px-4 py-12">
       {/* Decorative background orbs */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+      <div
+        className="pointer-events-none absolute inset-0 overflow-hidden"
+        aria-hidden
+      >
         <div className="absolute -top-40 -left-40 h-[500px] w-[500px] rounded-full bg-wiki-link/[0.06] blur-3xl" />
         <div className="absolute -right-40 -bottom-40 h-[500px] w-[500px] rounded-full bg-wiki-link/[0.06] blur-3xl" />
         <div className="absolute top-1/2 left-1/2 h-[700px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-wiki-link/[0.03] blur-3xl" />
       </div>
 
       <div className="relative flex w-full max-w-xl flex-col items-center gap-9">
-
         {/* ── Logo ──────────────────────────────────────────────────── */}
         <div className="anim-fade-in-up flex flex-col items-center gap-2 text-center">
-          <h1 className="font-serif text-[3.5rem] font-bold leading-none tracking-tight md:text-[5rem]">
+          <h1 className="font-serif text-[3.5rem] leading-none font-bold tracking-tight md:text-[5rem]">
             Wikiped<span className="text-wiki-link">IA</span>
           </h1>
           <p className="mt-1 text-sm text-muted-foreground md:text-base">
-            La enciclopedia libre generada por inteligencia artificial
+            {t.landing.subtitle}
           </p>
         </div>
 
         {/* ── Mode selector ─────────────────────────────────────────── */}
         <div className="anim-fade-in-up anim-delay-1 flex w-full max-w-md items-center gap-1 rounded-xl border border-border/70 bg-muted/50 p-1 backdrop-blur-sm">
-          {modes.map((m) => {
-            const Icon   = m.icon
-            const active = mode === m.value
+          {articleModes.map((m) => {
+            const Icon = MODE_ICONS[m]
+            const active = mode === m
+            const conf = t.landing.modes[m]
             return (
               <button
-                key={m.value}
+                key={m}
                 type="button"
-                title={m.desc}
-                onClick={() => setMode(m.value)}
+                title={conf.desc}
+                onClick={() => setMode(m)}
                 className={cn(
                   "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
                   active
@@ -108,15 +106,23 @@ export function Landing({ onSearch, initialMode = "medio" }: LandingProps) {
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <Icon className={cn("size-3.5 shrink-0", active ? "text-wiki-link" : "")} />
-                <span>{m.label}</span>
+                <Icon
+                  className={cn(
+                    "size-3.5 shrink-0",
+                    active ? "text-wiki-link" : ""
+                  )}
+                />
+                <span>{conf.label}</span>
               </button>
             )
           })}
         </div>
 
         {/* ── Search ────────────────────────────────────────────────── */}
-        <form onSubmit={handleSubmit} className="anim-fade-in-up anim-delay-2 w-full">
+        <form
+          onSubmit={handleSubmit}
+          className="anim-fade-in-up anim-delay-2 w-full"
+        >
           <div
             className={cn(
               "flex items-center gap-3 rounded-2xl border bg-background px-4 py-3 transition-all duration-200",
@@ -134,7 +140,7 @@ export function Landing({ onSearch, initialMode = "medio" }: LandingProps) {
             <input
               ref={inputRef}
               type="search"
-              placeholder="Buscar cualquier tema..."
+              placeholder={t.landing.searchPlaceholder}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onFocus={() => setFocused(true)}
@@ -147,7 +153,7 @@ export function Landing({ onSearch, initialMode = "medio" }: LandingProps) {
               disabled={!query.trim()}
               className="shrink-0 rounded-xl px-4 transition-opacity disabled:opacity-40"
             >
-              Buscar
+              {t.landing.searchButton}
             </Button>
           </div>
         </form>
@@ -156,7 +162,7 @@ export function Landing({ onSearch, initialMode = "medio" }: LandingProps) {
         {recentSearches.length > 0 && (
           <div className="anim-fade-in-up anim-delay-3 w-full">
             <p className="mb-2 text-center text-[0.7rem] font-semibold tracking-widest text-muted-foreground/50 uppercase">
-              Recientes
+              {t.landing.recents}
             </p>
             <div className="flex flex-wrap justify-center gap-2">
               {recentSearches.map((s) => (
@@ -172,9 +178,12 @@ export function Landing({ onSearch, initialMode = "medio" }: LandingProps) {
                     role="button"
                     tabIndex={0}
                     onClick={(e) => removeRecent(s, e)}
-                    onKeyDown={(e) => e.key === "Enter" && removeRecent(s, e as unknown as React.MouseEvent)}
+                    onKeyDown={(e) =>
+                      e.key === "Enter" &&
+                      removeRecent(s, e as unknown as React.MouseEvent)
+                    }
                     className="ml-0.5 rounded-full p-0.5 opacity-0 transition-opacity group-hover:opacity-60 hover:!opacity-100"
-                    aria-label={`Eliminar ${s} de recientes`}
+                    aria-label={t.landing.removeRecent(s)}
                   >
                     <X className="size-2.5" />
                   </span>
@@ -185,16 +194,18 @@ export function Landing({ onSearch, initialMode = "medio" }: LandingProps) {
         )}
 
         {/* ── Suggestions ───────────────────────────────────────────── */}
-        <div className={cn(
-          "anim-fade-in-up flex flex-wrap justify-center gap-2",
-          recentSearches.length > 0 ? "anim-delay-4" : "anim-delay-3"
-        )}>
+        <div
+          className={cn(
+            "anim-fade-in-up flex flex-wrap justify-center gap-2",
+            recentSearches.length > 0 ? "anim-delay-4" : "anim-delay-3"
+          )}
+        >
           {recentSearches.length > 0 && (
-            <p className="w-full text-center text-[0.7rem] font-semibold tracking-widest text-muted-foreground/50 uppercase mb-0">
-              Sugerencias
+            <p className="mb-0 w-full text-center text-[0.7rem] font-semibold tracking-widest text-muted-foreground/50 uppercase">
+              {t.landing.suggestions}
             </p>
           )}
-          {SUGGESTIONS.map((s) => (
+          {t.landing.suggestionItems.map((s) => (
             <button
               key={s}
               type="button"
@@ -205,7 +216,6 @@ export function Landing({ onSearch, initialMode = "medio" }: LandingProps) {
             </button>
           ))}
         </div>
-
       </div>
     </main>
   )

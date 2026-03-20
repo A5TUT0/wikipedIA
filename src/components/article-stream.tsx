@@ -1,10 +1,22 @@
 import { useMemo, useEffect, useRef, useState } from "react"
-import { Brain, ChevronDown, ChevronUp, Copy, Check, Zap, BookOpen, GraduationCap, AlertCircle, RefreshCw } from "lucide-react"
+import {
+  Brain,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Check,
+  Zap,
+  BookOpen,
+  GraduationCap,
+  AlertCircle,
+  RefreshCw,
+} from "lucide-react"
 import type { ImageResult } from "@/lib/wikipedia-images"
 import type { InfoboxData } from "@/App"
 import type { ArticleMode } from "@/lib/openrouter"
 import { cn } from "@/lib/utils"
 import { SelectionToolbar } from "@/components/selection-toolbar"
+import { useI18n } from "@/lib/i18n"
 
 interface ArticleStreamProps {
   title: string
@@ -48,7 +60,7 @@ function InlineMarkdown({ text }: { text: string }) {
 /** Pulsing skeleton shown while waiting for first content */
 function ArticleSkeleton() {
   return (
-    <div className="flex flex-col gap-4 animate-pulse">
+    <div className="flex animate-pulse flex-col gap-4">
       <div className="h-5 w-2/3 rounded-md bg-muted" />
       <div className="h-5 w-full rounded-md bg-muted" />
       <div className="h-5 w-4/5 rounded-md bg-muted" />
@@ -72,7 +84,12 @@ function MarkdownArticle({
 }) {
   const blocks = useMemo(() => {
     const lines = content.split("\n")
-    const result: { type: string; level?: number; text: string; id?: string }[] = []
+    const result: {
+      type: string
+      level?: number
+      text: string
+      id?: string
+    }[] = []
     let currentParagraph = ""
 
     for (const line of lines) {
@@ -83,7 +100,7 @@ function MarkdownArticle({
           currentParagraph = ""
         }
         const level = hMatch[1].length
-        const text  = hMatch[2]
+        const text = hMatch[2]
         result.push({ type: "heading", level, text, id: toSlug(text) })
         continue
       }
@@ -108,7 +125,8 @@ function MarkdownArticle({
       currentParagraph += (currentParagraph ? " " : "") + line
     }
 
-    if (currentParagraph.trim()) result.push({ type: "p", text: currentParagraph.trim() })
+    if (currentParagraph.trim())
+      result.push({ type: "p", text: currentParagraph.trim() })
     return result
   }, [content])
 
@@ -134,13 +152,16 @@ function MarkdownArticle({
                       loading="lazy"
                       onError={(e) => {
                         const target = e.currentTarget
-                        if (target.src !== img.thumbnail) target.src = img.thumbnail
+                        if (target.src !== img.thumbnail)
+                          target.src = img.thumbnail
                       }}
                     />
                     <figcaption className="px-3 py-2 text-center text-xs text-muted-foreground">
                       {img.title}
                       {img.source && (
-                        <span className="ml-1 italic opacity-70">— {img.source}</span>
+                        <span className="ml-1 italic opacity-70">
+                          — {img.source}
+                        </span>
                       )}
                     </figcaption>
                   </figure>
@@ -169,14 +190,20 @@ function MarkdownArticle({
 
         if (block.type === "li") {
           return (
-            <li key={i} className="ml-5 list-disc font-serif text-[0.9375rem] leading-[1.8] text-foreground/90">
+            <li
+              key={i}
+              className="ml-5 list-disc font-serif text-[0.9375rem] leading-[1.8] text-foreground/90"
+            >
               <InlineMarkdown text={block.text} />
             </li>
           )
         }
 
         return (
-          <p key={i} className="font-serif text-[0.9375rem] leading-[1.8] text-foreground/90">
+          <p
+            key={i}
+            className="font-serif text-[0.9375rem] leading-[1.8] text-foreground/90"
+          >
             <InlineMarkdown text={block.text} />
           </p>
         )
@@ -186,11 +213,21 @@ function MarkdownArticle({
 }
 
 /** Wikipedia-style infobox */
-function WikiInfobox({ data, image, title }: { data: InfoboxData; image?: ImageResult; title: string }) {
+function WikiInfobox({
+  data,
+  image,
+  title,
+}: {
+  data: InfoboxData
+  image?: ImageResult
+  title: string
+}) {
   return (
     <div className="float-right mb-5 ml-7 w-[270px] shrink-0 overflow-hidden rounded-xl border border-border/70 bg-card text-sm shadow-sm max-lg:float-none max-lg:mx-auto max-lg:mb-6 max-lg:w-full max-lg:max-w-sm">
       <div className="border-b border-border/60 bg-wiki-link/[0.07] px-4 py-2.5 text-center">
-        <h3 className="font-serif text-[0.9375rem] font-semibold leading-snug">{title}</h3>
+        <h3 className="font-serif text-[0.9375rem] leading-snug font-semibold">
+          {title}
+        </h3>
       </div>
       {image && (
         <div className="border-b border-border/60">
@@ -205,7 +242,9 @@ function WikiInfobox({ data, image, title }: { data: InfoboxData; image?: ImageR
             }}
           />
           {image.title && (
-            <p className="px-3 py-1.5 text-center text-[11px] text-muted-foreground">{image.title}</p>
+            <p className="px-3 py-1.5 text-center text-[11px] text-muted-foreground">
+              {image.title}
+            </p>
           )}
         </div>
       )}
@@ -213,7 +252,9 @@ function WikiInfobox({ data, image, title }: { data: InfoboxData; image?: ImageR
         <tbody>
           {Object.entries(data).map(([key, value]) => (
             <tr key={key} className="border-b border-border/40 last:border-0">
-              <td className="w-[40%] px-3 py-2 align-top font-medium text-muted-foreground">{key}</td>
+              <td className="w-[40%] px-3 py-2 align-top font-medium text-muted-foreground">
+                {key}
+              </td>
               <td className="px-3 py-2 text-foreground/90">{value}</td>
             </tr>
           ))}
@@ -223,10 +264,10 @@ function WikiInfobox({ data, image, title }: { data: InfoboxData; image?: ImageR
   )
 }
 
-const modeConfig: Record<ArticleMode, { label: string; icon: typeof Zap }> = {
-  rapido:    { label: "Rápido",    icon: Zap           },
-  medio:     { label: "Medio",     icon: BookOpen      },
-  extendido: { label: "Extendido", icon: GraduationCap },
+const modeIcons: Record<ArticleMode, typeof Zap> = {
+  rapido: Zap,
+  medio: BookOpen,
+  extendido: GraduationCap,
 }
 
 export function ArticleStream({
@@ -243,6 +284,7 @@ export function ArticleStream({
 }: ArticleStreamProps) {
   const [reasoningOpen, setReasoningOpen] = useState(true)
   const [copied, setCopied] = useState(false)
+  const { t, uiLocale } = useI18n()
   // Ref for the article body — used by SelectionToolbar to restrict selection scope
   const articleBodyRef = useRef<HTMLDivElement>(null)
 
@@ -262,8 +304,14 @@ export function ArticleStream({
 
   // Reading time
   const { wordCount, readingMinutes } = useMemo(() => {
-    const words = content.replace(/[#*`\[\]]/g, "").split(/\s+/).filter(Boolean).length
-    return { wordCount: words, readingMinutes: Math.max(1, Math.round(words / 200)) }
+    const words = content
+      .replace(/[#*`\[\]]/g, "")
+      .split(/\s+/)
+      .filter(Boolean).length
+    return {
+      wordCount: words,
+      readingMinutes: Math.max(1, Math.round(words / 200)),
+    }
   }, [content])
 
   function handleCopy() {
@@ -273,17 +321,16 @@ export function ArticleStream({
     })
   }
 
-  const ModeIcon = modeConfig[mode].icon
+  const ModeIcon = modeIcons[mode]
 
   return (
     <article className="anim-fade-in flex flex-col gap-5 pb-12">
-
       {/* ── Title ───────────────────────────────────────────────────── */}
       <div>
         <h1
           id="top"
           className={cn(
-            "font-serif text-3xl font-bold leading-tight tracking-tight md:text-4xl",
+            "font-serif text-3xl leading-tight font-bold tracking-tight md:text-4xl",
             isStreaming && content.length === 0 && "streaming-cursor"
           )}
         >
@@ -297,16 +344,20 @@ export function ArticleStream({
         {/* Mode badge */}
         <span className="flex items-center gap-1 rounded-md border border-border/60 bg-muted/40 px-2 py-1 font-medium">
           <ModeIcon className="size-3 text-wiki-link" />
-          {modeConfig[mode].label}
+          {t.landing.modes[mode].label}
         </span>
 
         {/* Stats (shown only when content exists) */}
         {content && !isStreaming && (
           <>
             <span className="opacity-40">·</span>
-            <span>{wordCount.toLocaleString("es")} palabras</span>
+            <span>
+              {wordCount.toLocaleString(uiLocale)} {t.article.words}
+            </span>
             <span className="opacity-40">·</span>
-            <span>~{readingMinutes} min de lectura</span>
+            <span>
+              ~{readingMinutes} {t.article.readingTime}
+            </span>
           </>
         )}
         {isStreaming && content && (
@@ -314,7 +365,7 @@ export function ArticleStream({
             <span className="opacity-40">·</span>
             <span className="flex items-center gap-1">
               <span className="inline-block size-1.5 animate-pulse rounded-full bg-wiki-link" />
-              Generando...
+              {t.article.generating}
             </span>
           </>
         )}
@@ -325,17 +376,17 @@ export function ArticleStream({
             type="button"
             onClick={handleCopy}
             className="ml-auto flex items-center gap-1.5 rounded-md px-2 py-1 transition-colors hover:bg-muted/60 hover:text-foreground"
-            title="Copiar artículo"
+            title={t.article.copy}
           >
             {copied ? (
               <>
                 <Check className="size-3 text-green-500" />
-                <span className="text-green-500">Copiado</span>
+                <span className="text-green-500">{t.article.copied}</span>
               </>
             ) : (
               <>
                 <Copy className="size-3" />
-                <span>Copiar</span>
+                <span>{t.article.copy}</span>
               </>
             )}
           </button>
@@ -351,7 +402,9 @@ export function ArticleStream({
             className="flex w-full items-center gap-2.5 px-4 py-3 text-left transition-colors hover:bg-muted/50"
           >
             <Brain className="size-4 shrink-0 text-wiki-link" />
-            <span className="text-sm font-medium text-muted-foreground">Pensamiento de la IA</span>
+            <span className="text-sm font-medium text-muted-foreground">
+              {t.article.aiThinking}
+            </span>
             {isStreaming && !content && (
               <span className="ml-1 inline-block size-1.5 animate-pulse rounded-full bg-wiki-link" />
             )}
@@ -376,7 +429,9 @@ export function ArticleStream({
           <div className="flex items-start gap-3">
             <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
             <div className="flex flex-col gap-2">
-              <p className="text-sm font-medium text-destructive">Error al generar el artículo</p>
+              <p className="text-sm font-medium text-destructive">
+                {t.article.errorTitle}
+              </p>
               <p className="text-xs text-muted-foreground">{error}</p>
               <button
                 type="button"
@@ -384,7 +439,7 @@ export function ArticleStream({
                 className="mt-1 flex w-fit items-center gap-1.5 rounded-lg border border-border/60 bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted"
               >
                 <RefreshCw className="size-3" />
-                Intentar de nuevo
+                {t.article.errorRetry}
               </button>
             </div>
           </div>
@@ -398,7 +453,11 @@ export function ArticleStream({
       {(content || infobox) && (
         <div ref={articleBodyRef} className="overflow-hidden">
           {infobox && (
-            <WikiInfobox data={infobox} image={images[0]} title={displayTitle} />
+            <WikiInfobox
+              data={infobox}
+              image={images[0]}
+              title={displayTitle}
+            />
           )}
           {content && (
             <MarkdownArticle
@@ -416,10 +475,7 @@ export function ArticleStream({
 
       {/* ── Selection toolbar (only when article is done) ───────────── */}
       {!isStreaming && content && (
-        <SelectionToolbar
-          containerRef={articleBodyRef}
-          onSearch={onSearch}
-        />
+        <SelectionToolbar containerRef={articleBodyRef} onSearch={onSearch} />
       )}
     </article>
   )

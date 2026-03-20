@@ -1,14 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Copy, Check, Search, Eraser } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useI18n } from "@/lib/i18n"
 
 // Semi-transparent colors — work in both light and dark mode
 const HIGHLIGHT_COLORS = [
-  { bg: "rgba(253, 224, 71,  0.45)", label: "Amarillo" },
-  { bg: "rgba(134, 239, 172, 0.45)", label: "Verde" },
-  { bg: "rgba(125, 211, 252, 0.45)", label: "Azul" },
-  { bg: "rgba(249, 168, 212, 0.45)", label: "Rosa" },
-  { bg: "rgba(253, 186, 116, 0.45)", label: "Naranja" },
+  { bg: "rgba(253, 224, 71,  0.45)", key: "yellow" as const },
+  { bg: "rgba(134, 239, 172, 0.45)", key: "green"  as const },
+  { bg: "rgba(125, 211, 252, 0.45)", key: "blue"   as const },
+  { bg: "rgba(249, 168, 212, 0.45)", key: "pink"   as const },
+  { bg: "rgba(253, 186, 116, 0.45)", key: "orange" as const },
 ]
 
 // Max chars for a reasonable WikipedIA search query
@@ -23,6 +24,7 @@ export function SelectionToolbar({
   containerRef,
   onSearch,
 }: SelectionToolbarProps) {
+  const { t } = useI18n()
   const [visible, setVisible] = useState(false)
   const [position, setPosition] = useState({ top: 0, left: 0 })
   const [selText, setSelText] = useState("")
@@ -225,16 +227,16 @@ export function SelectionToolbar({
     >
       <div className="flex items-center gap-px rounded-xl border border-border/70 bg-background/95 p-1 shadow-xl shadow-black/10 backdrop-blur-md">
         {/* Copy */}
-        <ActionBtn onClick={handleCopy} title="Copiar texto">
+        <ActionBtn onClick={handleCopy} title={t.toolbar.copy}>
           {copied ? (
             <>
               <Check className="size-3.5 text-green-500" />
-              <span className="text-green-500">Copiado</span>
+              <span className="text-green-500">{t.toolbar.copied}</span>
             </>
           ) : (
             <>
               <Copy className="size-3.5" />
-              <span>Copiar</span>
+              <span>{t.toolbar.copy}</span>
             </>
           )}
         </ActionBtn>
@@ -248,9 +250,9 @@ export function SelectionToolbar({
               key={c.bg}
               type="button"
               onClick={() => applyHighlight(c.bg)}
-              title={`Marcar en ${c.label}`}
+              title={t.toolbar.colors[c.key]}
               className={cn(
-                "size-[18px] rounded-full border border-border/40 transition-all duration-150",
+                "size-4.5 rounded-full border border-border/40 transition-all duration-150",
                 "hover:scale-125 hover:border-foreground/30"
               )}
               style={{ backgroundColor: c.bg }}
@@ -262,9 +264,9 @@ export function SelectionToolbar({
         {canSearch && (
           <>
             <Divider />
-            <ActionBtn onClick={handleSearch} title="Buscar en WikipedIA">
+            <ActionBtn onClick={handleSearch} title={t.toolbar.search}>
               <Search className="size-3.5" />
-              <span>Buscar</span>
+              <span>{t.toolbar.search}</span>
             </ActionBtn>
           </>
         )}
@@ -273,9 +275,9 @@ export function SelectionToolbar({
         {isHighlighted && (
           <>
             <Divider />
-            <ActionBtn onClick={removeHighlight} title="Quitar marcador">
+            <ActionBtn onClick={removeHighlight} title={t.toolbar.removeHighlight}>
               <Eraser className="size-3.5" />
-              <span>Quitar</span>
+              <span>{t.toolbar.removeHighlight}</span>
             </ActionBtn>
           </>
         )}

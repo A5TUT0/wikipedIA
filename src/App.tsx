@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Header } from "@/components/header"
 import {
   TableOfContents,
@@ -16,6 +10,7 @@ import { Footer } from "@/components/footer"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { streamArticle, type ArticleMode } from "@/lib/openrouter"
 import { fetchImages, type ImageResult } from "@/lib/wikipedia-images"
+import { useI18n, AI_LANG_NAMES } from "@/lib/i18n"
 import { ArrowUp } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -55,19 +50,20 @@ function extractInfobox(raw: string): {
 type AppView = "landing" | "article"
 
 export function App() {
-  const [view, setView]             = useState<AppView>("landing")
-  const [query, setQuery]           = useState("")
-  const [reasoning, setReasoning]   = useState("")
-  const [content, setContent]       = useState("")
-  const [images, setImages]         = useState<ImageResult[]>([])
+  const { t, aiLang } = useI18n()
+  const [view, setView] = useState<AppView>("landing")
+  const [query, setQuery] = useState("")
+  const [reasoning, setReasoning] = useState("")
+  const [content, setContent] = useState("")
+  const [images, setImages] = useState<ImageResult[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
-  const [error, setError]           = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [currentMode, setCurrentMode] = useState<ArticleMode>("medio")
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // Scroll state for reading progress + back-to-top
   const [readingProgress, setReadingProgress] = useState(0)
-  const [showBackToTop, setShowBackToTop]     = useState(false)
+  const [showBackToTop, setShowBackToTop] = useState(false)
 
   // Trigger to focus header search (Cmd/Ctrl+K)
   const [searchFocusTrigger, setSearchFocusTrigger] = useState(0)
@@ -85,9 +81,12 @@ export function App() {
     if (view !== "article") return
 
     const handleScroll = () => {
-      const scrollTop  = window.scrollY
-      const docHeight  = document.documentElement.scrollHeight - window.innerHeight
-      setReadingProgress(docHeight > 0 ? Math.min(100, (scrollTop / docHeight) * 100) : 0)
+      const scrollTop = window.scrollY
+      const docHeight =
+        document.documentElement.scrollHeight - window.innerHeight
+      setReadingProgress(
+        docHeight > 0 ? Math.min(100, (scrollTop / docHeight) * 100) : 0
+      )
       setShowBackToTop(scrollTop > 400)
     }
 
@@ -139,19 +138,32 @@ export function App() {
 
       let fullContent = ""
 
+      const langName = aiLang !== "auto" ? AI_LANG_NAMES[aiLang] : undefined
+
       await streamArticle(
         searchQuery,
         selectedMode,
         {
-          onReasoning(chunk) { setReasoning((prev) => prev + chunk) },
-          onContent(chunk)   { fullContent += chunk; setContent(fullContent) },
-          onDone()           { setIsStreaming(false) },
-          onError(err)       { setIsStreaming(false); setError(err) },
+          onReasoning(chunk) {
+            setReasoning((prev) => prev + chunk)
+          },
+          onContent(chunk) {
+            fullContent += chunk
+            setContent(fullContent)
+          },
+          onDone() {
+            setIsStreaming(false)
+          },
+          onError(err) {
+            setIsStreaming(false)
+            setError(err)
+          },
         },
-        controller.signal
+        controller.signal,
+        langName
       )
     },
-    [currentMode]
+    [currentMode, aiLang]
   )
 
   const handleBack = useCallback(() => {
@@ -201,7 +213,9 @@ export function App() {
       {/* Mobile sidebar sheet */}
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
         <SheetContent side="left" className="w-72 p-4">
-          <SheetTitle className="font-serif text-lg">Navegación</SheetTitle>
+          <SheetTitle className="font-serif text-lg">
+            {t.app.navigation}
+          </SheetTitle>
           <TableOfContents items={tocItems} className="mt-4" />
         </SheetContent>
       </Sheet>
@@ -216,7 +230,7 @@ export function App() {
         </aside>
 
         {/* Center: Article */}
-        <main className="min-w-0 max-w-3xl flex-1">
+        <main className="max-w-3xl min-w-0 flex-1">
           <ArticleStream
             title={query}
             mode={currentMode}
@@ -238,12 +252,12 @@ export function App() {
       <button
         type="button"
         onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-        aria-label="Volver arriba"
+        aria-label={t.app.backToTop}
         className={cn(
-          "fixed bottom-6 right-6 z-40 flex size-10 items-center justify-center rounded-full border border-border/60 bg-background shadow-md transition-all duration-200 hover:border-wiki-link/50 hover:text-wiki-link",
+          "fixed right-6 bottom-6 z-40 flex size-10 items-center justify-center rounded-full border border-border/60 bg-background shadow-md transition-all duration-200 hover:border-wiki-link/50 hover:text-wiki-link",
           showBackToTop
             ? "translate-y-0 opacity-100"
-            : "translate-y-4 pointer-events-none opacity-0"
+            : "pointer-events-none translate-y-4 opacity-0"
         )}
       >
         <ArrowUp className="size-4" />

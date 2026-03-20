@@ -92,9 +92,23 @@ export async function streamArticle(
   query: string,
   mode: ArticleMode,
   callbacks: StreamCallbacks,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  /** Full language name in Spanish (e.g. "inglés"). Omit to auto-detect from query. */
+  langName?: string
 ) {
-  const systemPrompt = SYSTEM_PROMPTS[mode]
+  let systemPrompt = SYSTEM_PROMPTS[mode]
+  if (langName) {
+    // Replace every "write in the user's language" rule with the explicit language
+    systemPrompt = systemPrompt
+      .replace(
+        "- Escribe en el mismo idioma que el usuario\n",
+        `- Escribe SIEMPRE en ${langName}, independientemente del idioma de la consulta\n`
+      )
+      .replace(
+        "- Escribe en el mismo idioma que el usuario use en su búsqueda\n",
+        `- Escribe SIEMPRE en ${langName}, independientemente del idioma de la consulta\n`
+      )
+  }
 
   const response = await fetch(API_URL, {
     method: "POST",
