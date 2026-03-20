@@ -227,6 +227,7 @@ export function App() {
             infobox={infobox}
             error={error}
             onRetry={handleRetry}
+            onSearch={(q) => handleSearch(q, currentMode)}
           />
         </main>
       </div>

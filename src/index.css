@@ -222,3 +222,15 @@
 .article-prose li {
   line-height: 1.75;
 }
+
+/* ── Highlights (selection toolbar marks) ────────────────────────────── */
+mark[data-highlight] {
+  border-radius: 3px;
+  padding: 1px 2px;
+  cursor: pointer;
+  /* Semi-transparent rgba colors work natively in both light & dark mode */
+  transition: opacity 0.15s;
+}
+mark[data-highlight]:hover {
+  opacity: 0.75;
+}

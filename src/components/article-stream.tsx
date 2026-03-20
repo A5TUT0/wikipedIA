@@ -4,6 +4,7 @@ import type { ImageResult } from "@/lib/wikipedia-images"
 import type { InfoboxData } from "@/App"
 import type { ArticleMode } from "@/lib/openrouter"
 import { cn } from "@/lib/utils"
+import { SelectionToolbar } from "@/components/selection-toolbar"
 
 interface ArticleStreamProps {
   title: string
@@ -15,6 +16,7 @@ interface ArticleStreamProps {
   infobox: InfoboxData | null
   error: string | null
   onRetry: () => void
+  onSearch?: (query: string) => void
 }
 
 /** Convert a heading title to a slug for id anchors */
@@ -237,9 +239,12 @@ export function ArticleStream({
   infobox,
   error,
   onRetry,
+  onSearch,
 }: ArticleStreamProps) {
   const [reasoningOpen, setReasoningOpen] = useState(true)
   const [copied, setCopied] = useState(false)
+  // Ref for the article body — used by SelectionToolbar to restrict selection scope
+  const articleBodyRef = useRef<HTMLDivElement>(null)
 
   const hasClosedReasoning = useRef(false)
   useEffect(() => {
@@ -391,7 +396,7 @@ export function ArticleStream({
 
       {/* ── Article body ────────────────────────────────────────────── */}
       {(content || infobox) && (
-        <div className="overflow-hidden">
+        <div ref={articleBodyRef} className="overflow-hidden">
           {infobox && (
             <WikiInfobox data={infobox} image={images[0]} title={displayTitle} />
           )}
@@ -407,6 +412,14 @@ export function ArticleStream({
       {/* ── Trailing cursor ─────────────────────────────────────────── */}
       {isStreaming && content && (
         <span className="streaming-cursor inline-block w-fit" />
+      )}
+
+      {/* ── Selection toolbar (only when article is done) ───────────── */}
+      {!isStreaming && content && (
+        <SelectionToolbar
+          containerRef={articleBodyRef}
+          onSearch={onSearch}
+        />
       )}
     </article>
   )
