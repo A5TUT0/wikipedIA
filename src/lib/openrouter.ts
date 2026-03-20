@@ -8,12 +8,25 @@ const MODEL = "arcee-ai/trinity-large-preview:free"
 const INFOBOX_INSTRUCTION = `
 ANTES del artículo, genera un bloque de datos estructurados con el siguiente formato EXACTO:
 [INFOBOX]
-Nombre: nombre completo del tema
-Tipo: categoría o clasificación
-Campo1: valor1
-Campo2: valor2
-(incluye 4-8 campos relevantes con datos clave: fechas, ubicaciones, clasificaciones, datos numéricos, etc.)
+NombreDescriptivo1: valor1
+NombreDescriptivo2: valor2
+(incluye 4-8 campos)
 [/INFOBOX]
+
+REGLAS DEL INFOBOX:
+- Cada clave (antes de los dos puntos) debe ser un nombre DESCRIPTIVO y REAL del dato: por ejemplo "Fundación", "País", "Autor", "Año", "Población", "Capital", "Idioma", "Categoría", "Descubridor", "Fórmula", etc.
+- NUNCA uses "Campo1", "Campo2" ni nombres genéricos numerados.
+- Los campos deben ser los más relevantes para el tema específico (fechas, personas, lugares, clasificaciones, datos numéricos clave).
+- Ejemplo correcto para "Inteligencia Artificial":
+  Fundación: 1956, Dartmouth College
+  Pionero: Alan Turing, John McCarthy
+  Subcampo de: Ciencias de la computación
+  Aplicaciones: Medicina, Finanzas, Robótica
+- Ejemplo correcto para "París":
+  País: Francia
+  Fundación: Siglo III a.C.
+  Población: 2,1 millones (ciudad)
+  Superficie: 105 km²
 
 Después del bloque INFOBOX, genera el artículo en Markdown.`
 
