@@ -77,6 +77,66 @@ function ArticleSkeleton() {
   )
 }
 
+function LoadingEntertainment() {
+  const { t } = useI18n()
+  const facts = t.loading.facts
+  const messages = t.loading.messages
+  const [factIndex, setFactIndex] = useState(0)
+  const [msgIndex, setMsgIndex] = useState(0)
+  const [factVisible, setFactVisible] = useState(true)
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFactVisible(false)
+      setTimeout(() => {
+        setFactIndex((i) => (i + 1) % facts.length)
+        setFactVisible(true)
+      }, 350)
+    }, 6000)
+    return () => clearInterval(interval)
+  }, [facts.length])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setMsgIndex((i) => (i + 1) % messages.length)
+    }, 4000)
+    return () => clearInterval(interval)
+  }, [messages.length])
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="rounded-xl border border-wiki-link/25 bg-wiki-link/[0.04] px-5 py-4">
+        <div className="mb-2.5 flex items-center gap-2">
+          <span className="text-sm font-semibold text-wiki-link">{t.loading.didYouKnow}</span>
+          <span className="inline-block size-1.5 animate-pulse rounded-full bg-wiki-link" />
+        </div>
+        <p
+          className="min-h-[3rem] text-[0.9rem] leading-relaxed text-foreground/80"
+          style={{ opacity: factVisible ? 1 : 0, transition: "opacity 0.35s ease" }}
+        >
+          {facts[factIndex]}
+        </p>
+        <div className="mt-3 flex gap-1">
+          {facts.map((_, i) => (
+            <span
+              key={i}
+              className={cn(
+                "inline-block h-1 rounded-full transition-all duration-500",
+                i === factIndex ? "w-4 bg-wiki-link" : "w-1 bg-border"
+              )}
+            />
+          ))}
+        </div>
+      </div>
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <span className="inline-block size-1.5 animate-pulse rounded-full bg-wiki-link" />
+        <span>{messages[msgIndex]}</span>
+      </div>
+      <ArticleSkeleton />
+    </div>
+  )
+}
+
 // ── Lightbox ──────────────────────────────────────────────────────────────────
 
 function Lightbox({ img, onClose }: { img: ImageResult; onClose: () => void }) {
@@ -552,8 +612,8 @@ export function ArticleStream({
         </div>
       )}
 
-      {/* ── Loading skeleton ────────────────────────────────────────── */}
-      {isStreaming && !content && !error && <ArticleSkeleton />}
+      {/* ── Loading entertainment ────────────────────────────────────── */}
+      {isStreaming && !content && !error && <LoadingEntertainment />}
 
       {/* ── Article body ────────────────────────────────────────────── */}
       {(content || infobox) && (
