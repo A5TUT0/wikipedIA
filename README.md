@@ -2,6 +2,18 @@
 
 Enciclopedia con inteligencia artificial. Busca cualquier tema y obtén un artículo completo generado por IA con infobox, imágenes y artículos relacionados.
 
+**Disponible en [wikipedia.noahlezama.com](https://wikipedia.noahlezama.com/)**
+
+<p align="center">
+  <img src=".github/demo.gif" alt="Demo" width="720" />
+</p>
+
+## Screenshots
+
+| Landing                                                     | Artículo                                                     |
+| ----------------------------------------------------------- | ------------------------------------------------------------ |
+| <img src=".github/landing.png" alt="Landing" width="400" /> | <img src=".github/article.png" alt="Artículo" width="400" /> |
+
 ## Stack
 
 - **React 19** + **TypeScript** + **Vite**
