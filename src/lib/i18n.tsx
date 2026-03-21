@@ -48,12 +48,37 @@ const translations = {
       recents: "Recientes",
       suggestions: "Sugerencias",
       suggestionItems: [
-        "Midudev",
-        "CubePath",
-        "Inteligencia Artificial",
-        "Vite",
-        "React",
-        "TypeScript",
+        {
+          label: "Midudev",
+          query: "Midudev",
+          context:
+            "Miguel Ángel Durán García, conocido como Midudev, es un programador y creador de contenido español especializado en desarrollo web. Es reconocido por su contenido educativo sobre JavaScript, React y tecnologías frontend.",
+        },
+        {
+          label: "CubePath",
+          query: "CubePath",
+          context:
+            "CubePath es una empresa de infraestructura de servidores y hosting de próxima generación. Ofrece servidores dedicados con despliegue instantáneo, Cloud VPS, Cloud Gateway (conectividad con AWS, Google Cloud, Azure), y protección DDoS de grado empresarial. Garantiza 99.99% de uptime, soporte 24/7 y red AnyCast de baja latencia. Opera en centros de datos tier-3 en 5 ubicaciones estratégicas: Barcelona, Ámsterdam, Houston, Miami y Virginia. Tiene un panel de control en my.cubepath.com y una API REST junto con CubeCLI para automatización. Sus partners tecnológicos incluyen AMD, Samsung, Arista, Nutanix y VMware. También cuenta con un marketplace y su producto más reciente es OpenClaw. Sitio web: https://cubepath.com/",
+        },
+        { label: "Inteligencia Artificial", query: "Inteligencia Artificial" },
+        {
+          label: "Vite",
+          query: "Vite",
+          context:
+            "Vite es una herramienta de construcción (build tool) para proyectos web frontend, creada por Evan You, el creador de Vue.js.",
+        },
+        {
+          label: "React",
+          query: "React",
+          context:
+            "React es una biblioteca de JavaScript para construir interfaces de usuario, desarrollada por Meta (Facebook).",
+        },
+        {
+          label: "TypeScript",
+          query: "TypeScript",
+          context:
+            "TypeScript es un lenguaje de programación desarrollado por Microsoft que extiende JavaScript con tipos estáticos.",
+        },
       ],
       removeRecent: (q: string) => `Eliminar ${q} de recientes`,
     },
@@ -152,12 +177,37 @@ const translations = {
       recents: "Recent",
       suggestions: "Suggestions",
       suggestionItems: [
-        "Midudev",
-        "CubePath",
-        "Artificial Intelligence",
-        "Vite",
-        "React",
-        "TypeScript",
+        {
+          label: "Midudev",
+          query: "Midudev",
+          context:
+            "Miguel Ángel Durán García, known as Midudev, is a Spanish programmer and content creator specializing in web development. He is known for educational content about JavaScript, React and frontend technologies.",
+        },
+        {
+          label: "CubePath",
+          query: "CubePath",
+          context:
+            "CubePath is a next-generation server infrastructure and hosting company. They offer dedicated servers with instant deploy, Cloud VPS, Cloud Gateway (connectivity to AWS, Google Cloud, Azure), and enterprise-grade DDoS protection. They guarantee 99.99% uptime, 24/7 expert support, and an AnyCast low-latency network. They own and operate servers in tier-3 datacenters across 5 strategic locations: Barcelona, Amsterdam, Houston, Miami, and Virginia. They provide a control panel at my.cubepath.com and a REST API along with CubeCLI for infrastructure automation. Technology partners include AMD, Samsung, Arista, Nutanix, and VMware. They also have a marketplace and their newest product is OpenClaw. Website: https://cubepath.com/",
+        },
+        { label: "Artificial Intelligence", query: "Artificial Intelligence" },
+        {
+          label: "Vite",
+          query: "Vite",
+          context:
+            "Vite is a frontend web build tool created by Evan You, the creator of Vue.js.",
+        },
+        {
+          label: "React",
+          query: "React",
+          context:
+            "React is a JavaScript library for building user interfaces, developed by Meta (Facebook).",
+        },
+        {
+          label: "TypeScript",
+          query: "TypeScript",
+          context:
+            "TypeScript is a programming language developed by Microsoft that extends JavaScript with static types.",
+        },
       ],
       removeRecent: (q: string) => `Remove ${q} from recent`,
     },

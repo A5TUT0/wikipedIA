@@ -8,7 +8,11 @@ import { ArticleStream } from "@/components/article-stream"
 import { Landing } from "@/components/landing"
 import { Footer } from "@/components/footer"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
-import { streamArticle, type ArticleMode } from "@/lib/openrouter"
+import {
+  streamArticle,
+  type ArticleMode,
+  type AIModelId,
+} from "@/lib/openrouter"
 import { fetchImages, type ImageResult } from "@/lib/wikipedia-images"
 import { useI18n, AI_LANG_NAMES } from "@/lib/i18n"
 import { ArrowUp } from "lucide-react"
@@ -53,12 +57,16 @@ export function App() {
   const { t, aiLang } = useI18n()
   const [view, setView] = useState<AppView>("landing")
   const [query, setQuery] = useState("")
+  const [displayTitle, setDisplayTitle] = useState("")
   const [reasoning, setReasoning] = useState("")
   const [content, setContent] = useState("")
   const [images, setImages] = useState<ImageResult[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [currentMode, setCurrentMode] = useState<ArticleMode>("medio")
+  const [currentModel, setCurrentModel] = useState<AIModelId>(
+    "meta-llama/llama-3.3-70b-instruct:free"
+  )
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // Scroll state for reading progress + back-to-top
@@ -130,7 +138,11 @@ export function App() {
 
   // ── Core search handler ──────────────────────────────────────────────
   const handleSearch = useCallback(
-    async (searchQuery: string, mode?: ArticleMode) => {
+    async (
+      searchQuery: string,
+      mode?: ArticleMode,
+      options?: { displayTitle?: string; context?: string }
+    ) => {
       const selectedMode = mode ?? currentMode
 
       abortRef.current?.abort()
@@ -138,6 +150,7 @@ export function App() {
       abortRef.current = controller
 
       setQuery(searchQuery)
+      setDisplayTitle(options?.displayTitle ?? searchQuery)
       setCurrentMode(selectedMode)
       setReasoning("")
       setContent("")
@@ -147,7 +160,8 @@ export function App() {
       setView("article")
       window.scrollTo({ top: 0 })
       window.history.replaceState(
-        null, "",
+        null,
+        "",
         `?q=${encodeURIComponent(searchQuery)}&mode=${selectedMode}`
       )
 
@@ -177,10 +191,12 @@ export function App() {
           },
         },
         controller.signal,
-        langName
+        langName,
+        options?.context,
+        currentModel
       )
     },
-    [currentMode, aiLang]
+    [currentMode, aiLang, currentModel]
   )
 
   const handleBack = useCallback(() => {
@@ -188,6 +204,7 @@ export function App() {
     window.history.replaceState(null, "", window.location.pathname)
     setView("landing")
     setQuery("")
+    setDisplayTitle("")
     setReasoning("")
     setContent("")
     setImages([])
@@ -204,7 +221,12 @@ export function App() {
     return (
       <div className="flex h-svh flex-col overflow-hidden">
         <Header mode="landing" onBack={handleBack} />
-        <Landing onSearch={handleSearch} initialMode={currentMode} />
+        <Landing
+          onSearch={handleSearch}
+          initialMode={currentMode}
+          currentModel={currentModel}
+          onModelChange={setCurrentModel}
+        />
         <Footer />
       </div>
     )
@@ -250,7 +272,7 @@ export function App() {
         {/* Center: Article */}
         <main className="max-w-3xl min-w-0 flex-1">
           <ArticleStream
-            title={query}
+            title={displayTitle}
             mode={currentMode}
             reasoning={reasoning}
             content={cleanContent}
