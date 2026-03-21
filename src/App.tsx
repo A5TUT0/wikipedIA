@@ -7,6 +7,7 @@ import {
 import { ArticleStream } from "@/components/article-stream"
 import { Landing } from "@/components/landing"
 import { Footer } from "@/components/footer"
+import { ToastContainer } from "@/components/toast"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import {
   streamArticle,
@@ -51,6 +52,101 @@ function extractInfobox(raw: string): {
   }
 }
 
+/** Extract [RELATED]...[/RELATED] block from content */
+function extractRelated(raw: string): {
+  related: string[]
+  cleanContent: string
+} {
+  const match = raw.match(/\[RELATED\]\n?([\s\S]*?)\[\/RELATED\]\n?/)
+  if (!match) return { related: [], cleanContent: raw }
+  const items = match[1]
+    .trim()
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+  return { related: items, cleanContent: raw.replace(match[0], "").trim() }
+}
+
+// ── Search history helpers ────────────────────────────────────────────────────
+const HISTORY_KEY = "wikia-search-history"
+const MAX_HISTORY = 12
+
+function getSearchHistory(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? "[]")
+  } catch {
+    return []
+  }
+}
+
+function addToHistory(query: string) {
+  const history = getSearchHistory().filter(
+    (h) => h.toLowerCase() !== query.toLowerCase()
+  )
+  history.unshift(query)
+  if (history.length > MAX_HISTORY) history.length = MAX_HISTORY
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
+}
+
+function removeFromHistory(query: string) {
+  const history = getSearchHistory().filter(
+    (h) => h.toLowerCase() !== query.toLowerCase()
+  )
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
+}
+
+// ── Article cache helpers ─────────────────────────────────────────────────────
+const CACHE_KEY = "wikia-article-cache"
+const MAX_CACHE = 20
+
+interface CachedArticle {
+  content: string
+  mode: ArticleMode
+  timestamp: number
+}
+
+function getCachedArticle(
+  query: string,
+  mode: ArticleMode
+): CachedArticle | null {
+  try {
+    const cache: Record<string, CachedArticle> = JSON.parse(
+      localStorage.getItem(CACHE_KEY) ?? "{}"
+    )
+    const key = `${query.toLowerCase()}::${mode}`
+    const entry = cache[key]
+    if (!entry) return null
+    // Cache expires after 24h
+    if (Date.now() - entry.timestamp > 24 * 60 * 60 * 1000) return null
+    return entry
+  } catch {
+    return null
+  }
+}
+
+function cacheArticle(query: string, mode: ArticleMode, content: string) {
+  try {
+    const cache: Record<string, CachedArticle> = JSON.parse(
+      localStorage.getItem(CACHE_KEY) ?? "{}"
+    )
+    const key = `${query.toLowerCase()}::${mode}`
+    cache[key] = { content, mode, timestamp: Date.now() }
+    // Evict oldest if too many
+    const keys = Object.keys(cache)
+    if (keys.length > MAX_CACHE) {
+      const sorted = keys.sort(
+        (a, b) => (cache[a].timestamp ?? 0) - (cache[b].timestamp ?? 0)
+      )
+      for (let i = 0; i < keys.length - MAX_CACHE; i++) {
+        delete cache[sorted[i]]
+      }
+    }
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cache))
+  } catch {
+    // Storage full or unavailable
+  }
+}
+
 type AppView = "landing" | "article"
 
 export function App() {
@@ -68,6 +164,8 @@ export function App() {
     "meta-llama/llama-3.3-70b-instruct:free"
   )
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [searchHistory, setSearchHistory] = useState<string[]>(getSearchHistory)
+  const [transitioning, setTransitioning] = useState(false)
 
   // Scroll state for reading progress + back-to-top
   const [readingProgress, setReadingProgress] = useState(0)
@@ -78,9 +176,13 @@ export function App() {
 
   const abortRef = useRef<AbortController | null>(null)
 
-  const { infobox, cleanContent } = useMemo(
+  const { infobox, cleanContent: contentAfterInfobox } = useMemo(
     () => extractInfobox(content),
     [content]
+  )
+  const { related, cleanContent } = useMemo(
+    () => extractRelated(contentAfterInfobox),
+    [contentAfterInfobox]
   )
   const tocItems = useMemo(() => extractToc(cleanContent), [cleanContent])
 
@@ -149,6 +251,10 @@ export function App() {
       const controller = new AbortController()
       abortRef.current = controller
 
+      // Save to history
+      addToHistory(options?.displayTitle ?? searchQuery)
+      setSearchHistory(getSearchHistory())
+
       setQuery(searchQuery)
       setDisplayTitle(options?.displayTitle ?? searchQuery)
       setCurrentMode(selectedMode)
@@ -157,7 +263,14 @@ export function App() {
       setImages([])
       setError(null)
       setIsStreaming(true)
-      setView("article")
+
+      // Transition animation
+      setTransitioning(true)
+      requestAnimationFrame(() => {
+        setView("article")
+        setTimeout(() => setTransitioning(false), 50)
+      })
+
       window.scrollTo({ top: 0 })
       window.history.replaceState(
         null,
@@ -167,9 +280,25 @@ export function App() {
 
       fetchImages(searchQuery, 1).then((imgs) => setImages(imgs))
 
+      // Check cache first
+      const cached = getCachedArticle(searchQuery, selectedMode)
+      if (cached && !options?.context) {
+        setContent(cached.content)
+        setIsStreaming(false)
+        return
+      }
+
       let fullContent = ""
 
       const langName = aiLang !== "auto" ? AI_LANG_NAMES[aiLang] : undefined
+
+      const errorMap: Record<string, string> = {
+        ERROR_UNAUTHORIZED: t.errors.unauthorized,
+        ERROR_RATE_LIMITED: t.errors.rateLimited,
+        ERROR_MODEL_UNAVAILABLE: t.errors.modelUnavailable,
+        ERROR_SERVER: t.errors.serverError,
+        ERROR_GENERIC: t.errors.generic,
+      }
 
       await streamArticle(
         searchQuery,
@@ -184,10 +313,11 @@ export function App() {
           },
           onDone() {
             setIsStreaming(false)
+            cacheArticle(searchQuery, selectedMode, fullContent)
           },
           onError(err) {
             setIsStreaming(false)
-            setError(err)
+            setError(errorMap[err] ?? err)
           },
         },
         controller.signal,
@@ -196,13 +326,17 @@ export function App() {
         currentModel
       )
     },
-    [currentMode, aiLang, currentModel]
+    [currentMode, aiLang, currentModel, t.errors]
   )
 
   const handleBack = useCallback(() => {
     abortRef.current?.abort()
     window.history.replaceState(null, "", window.location.pathname)
-    setView("landing")
+    setTransitioning(true)
+    requestAnimationFrame(() => {
+      setView("landing")
+      setTimeout(() => setTransitioning(false), 50)
+    })
     setQuery("")
     setDisplayTitle("")
     setReasoning("")
@@ -212,6 +346,11 @@ export function App() {
     setError(null)
   }, [])
 
+  const handleRemoveHistory = useCallback((q: string) => {
+    removeFromHistory(q)
+    setSearchHistory(getSearchHistory())
+  }, [])
+
   const handleRetry = useCallback(() => {
     handleSearch(query, currentMode)
   }, [handleSearch, query, currentMode])
@@ -219,22 +358,35 @@ export function App() {
   // ── Landing view ─────────────────────────────────────────────────────
   if (view === "landing") {
     return (
-      <div className="flex h-svh flex-col overflow-hidden">
+      <div
+        className={cn(
+          "flex h-svh flex-col overflow-hidden transition-opacity duration-300",
+          transitioning ? "opacity-0" : "opacity-100"
+        )}
+      >
         <Header mode="landing" onBack={handleBack} />
         <Landing
           onSearch={handleSearch}
           initialMode={currentMode}
           currentModel={currentModel}
           onModelChange={setCurrentModel}
+          searchHistory={searchHistory}
+          onRemoveHistory={handleRemoveHistory}
         />
         <Footer />
+        <ToastContainer />
       </div>
     )
   }
 
   // ── Article view ──────────────────────────────────────────────────────
   return (
-    <div className="flex min-h-svh flex-col">
+    <div
+      className={cn(
+        "flex min-h-svh flex-col transition-opacity duration-300",
+        transitioning ? "opacity-0" : "opacity-100"
+      )}
+    >
       {/* Reading progress bar */}
       <div
         className="fixed top-0 left-0 z-50 h-[2px] bg-wiki-link transition-all duration-100"
@@ -282,11 +434,14 @@ export function App() {
             error={error}
             onRetry={handleRetry}
             onSearch={(q) => handleSearch(q, currentMode)}
+            related={related}
           />
         </main>
       </div>
 
       <Footer />
+
+      <ToastContainer />
 
       {/* Back to top button */}
       <button

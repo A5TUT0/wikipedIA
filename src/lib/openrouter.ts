@@ -75,6 +75,18 @@ const LINKS_INSTRUCTION = `IMÁGENES POR SECCIÓN:
 - Ejemplo: si el artículo es sobre "Japón" y la sección es "## Geografía", escribe: [IMG: monte fuji paisaje]
 - Otro ejemplo: sección "## Historia" → [IMG: castillo japonés antiguo]`
 
+const RELATED_INSTRUCTION = `ARTÍCULOS RELACIONADOS:
+- AL FINAL del artículo (después de la última sección), genera un bloque de artículos relacionados.
+- Formato EXACTO:
+[RELATED]
+Término de búsqueda 1
+Término de búsqueda 2
+Término de búsqueda 3
+Término de búsqueda 4
+[/RELATED]
+- Cada línea debe ser un tema enciclopédico relacionado pero DIFERENTE al artículo actual.
+- Los términos deben ser concisos (1-4 palabras), como entradas de una enciclopedia.`
+
 const SAFETY_RULE = `- Si la consulta trata sobre contenido explícito para adultos, pornografía, drogas ilegales, violencia, autolesiones, odio u otros temas inapropiados o dañinos, responde ÚNICAMENTE con el texto: "Este tema no es apropiado para mí y no puedo darte una respuesta." No generes ningún artículo ni información adicional en ese caso.`
 
 const SYSTEM_PROMPTS: Record<ArticleMode, string> = {
@@ -91,6 +103,7 @@ REGLAS:
 - NO generes "Véase también" ni "Referencias"
 - Sé conciso y directo
 ${LINKS_INSTRUCTION}
+${RELATED_INSTRUCTION}
 ${SAFETY_RULE}`,
 
   medio: `Eres WikipedIA, una enciclopedia generada por inteligencia artificial.
@@ -107,6 +120,7 @@ REGLAS:
 - Usa **negrita** para términos importantes
 - NO generes "Véase también" ni "Referencias"
 ${LINKS_INSTRUCTION}
+${RELATED_INSTRUCTION}
 ${SAFETY_RULE}`,
 
   extendido: `Eres WikipedIA, una enciclopedia generada por inteligencia artificial.
@@ -126,6 +140,7 @@ REGLAS ESTRICTAS DE FORMATO:
 - Genera al menos 6-8 secciones ## sustanciales
 - Cada sección debe tener al menos 2-3 párrafos detallados
 ${LINKS_INSTRUCTION}
+${RELATED_INSTRUCTION}
 ${SAFETY_RULE}`,
 }
 
@@ -186,7 +201,18 @@ export async function streamArticle(
   })
 
   if (!response.ok) {
-    callbacks.onError(`Error ${response.status}: ${response.statusText}`)
+    const status = response.status
+    if (status === 401 || status === 403) {
+      callbacks.onError("ERROR_UNAUTHORIZED")
+    } else if (status === 429) {
+      callbacks.onError("ERROR_RATE_LIMITED")
+    } else if (status === 404) {
+      callbacks.onError("ERROR_MODEL_UNAVAILABLE")
+    } else if (status >= 500) {
+      callbacks.onError("ERROR_SERVER")
+    } else {
+      callbacks.onError("ERROR_GENERIC")
+    }
     return
   }
 

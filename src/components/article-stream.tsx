@@ -22,6 +22,7 @@ import type { ArticleMode } from "@/lib/openrouter"
 import { cn } from "@/lib/utils"
 import { SelectionToolbar } from "@/components/selection-toolbar"
 import { useI18n } from "@/lib/i18n"
+import { toast } from "@/components/toast"
 
 interface ArticleStreamProps {
   title: string
@@ -34,6 +35,7 @@ interface ArticleStreamProps {
   error: string | null
   onRetry: () => void
   onSearch?: (query: string) => void
+  related?: string[]
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -267,6 +269,7 @@ function LazyImage({
   expandLabel: string
 }) {
   const [img, setImg] = useState<ImageResult | null>(null)
+  const [loading, setLoading] = useState(true)
   const fetched = useRef(false)
 
   useEffect(() => {
@@ -274,8 +277,20 @@ function LazyImage({
     fetched.current = true
     fetchImages(keyword, 1).then((results) => {
       if (results.length > 0) setImg(results[0])
+      setLoading(false)
     })
   }, [keyword])
+
+  if (loading) {
+    return (
+      <div
+        className="mb-5 overflow-hidden rounded-xl"
+        style={{ aspectRatio: "16 / 7" }}
+      >
+        <div className="h-full w-full animate-pulse bg-muted" />
+      </div>
+    )
+  }
 
   if (!img) return null
 
@@ -519,6 +534,7 @@ export function ArticleStream({
   error,
   onRetry,
   onSearch,
+  related,
 }: ArticleStreamProps) {
   const { t, uiLocale } = useI18n()
   const [reasoningOpen, setReasoningOpen] = useState(true)
@@ -555,6 +571,7 @@ export function ArticleStream({
   function handleCopy() {
     navigator.clipboard.writeText(content).then(() => {
       setCopied(true)
+      toast(t.toast.copied)
       setTimeout(() => setCopied(false), 2000)
     })
   }
@@ -562,6 +579,7 @@ export function ArticleStream({
   function handleShare() {
     navigator.clipboard.writeText(window.location.href).then(() => {
       setShared(true)
+      toast(t.toast.linkCopied)
       setTimeout(() => setShared(false), 2500)
     })
   }
@@ -577,6 +595,7 @@ export function ArticleStream({
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
+    toast(t.toast.downloaded)
   }
 
   const ModeIcon = modeIcons[mode]
@@ -739,6 +758,27 @@ export function ArticleStream({
       {/* ── Trailing cursor ─────────────────────────────────────────── */}
       {isStreaming && content && (
         <span className="streaming-cursor inline-block w-fit" />
+      )}
+
+      {/* ── Related articles ────────────────────────────────────────── */}
+      {!isStreaming && related && related.length > 0 && (
+        <div className="rounded-xl border border-border/60 bg-muted/20 p-5">
+          <h3 className="mb-3 font-serif text-base font-semibold text-foreground">
+            {t.article.relatedTitle}
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {related.map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => onSearch?.(item)}
+                className="rounded-full border border-border/60 bg-background px-3.5 py-1.5 text-xs text-muted-foreground transition-all duration-150 hover:border-wiki-link/40 hover:bg-wiki-link/5 hover:text-wiki-link"
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
       {/* ── Selection toolbar ───────────────────────────────────────── */}

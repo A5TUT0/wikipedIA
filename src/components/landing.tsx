@@ -1,4 +1,12 @@
-import { Search, Zap, BookOpen, GraduationCap, Check } from "lucide-react"
+import {
+  Search,
+  Zap,
+  BookOpen,
+  GraduationCap,
+  Check,
+  Clock,
+  X,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useState, type FormEvent, useRef, useEffect } from "react"
 import { cn } from "@/lib/utils"
@@ -14,6 +22,8 @@ interface LandingProps {
   initialMode?: ArticleMode
   currentModel: AIModelId
   onModelChange: (model: AIModelId) => void
+  searchHistory: string[]
+  onRemoveHistory: (query: string) => void
 }
 
 const MODE_ICONS: Record<ArticleMode, typeof Zap> = {
@@ -29,6 +39,8 @@ export function Landing({
   initialMode = "medio",
   currentModel,
   onModelChange,
+  searchHistory,
+  onRemoveHistory,
 }: LandingProps) {
   const { t } = useI18n()
   const [query, setQuery] = useState("")
@@ -205,24 +217,68 @@ export function Landing({
           </div>
         </form>
 
-        {/* ── Suggestions ───────────────────────────────────────────── */}
-        <div className="anim-fade-in-up anim-delay-3 flex flex-wrap justify-center gap-2">
-          {t.landing.suggestionItems.map((s) => (
-            <button
-              key={s.label}
-              type="button"
-              onClick={() =>
-                onSearch(s.query, mode, {
-                  displayTitle: s.label,
-                  context: "context" in s ? s.context : undefined,
-                })
-              }
-              className="rounded-full border border-border/60 bg-background/70 px-3.5 py-1.5 text-xs text-muted-foreground backdrop-blur-sm transition-all duration-150 hover:border-wiki-link/40 hover:bg-wiki-link/5 hover:text-wiki-link"
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
+        {/* ── Recent searches ─────────────────────────────────────────── */}
+        {searchHistory.length > 0 && (
+          <div className="anim-fade-in-up anim-delay-3 flex w-full max-w-xl flex-col gap-2">
+            <span className="text-xs font-medium text-muted-foreground/60">
+              <Clock className="mr-1 mb-0.5 inline size-3" />
+              {t.landing.recents}
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {searchHistory.slice(0, 8).map((q) => (
+                <span
+                  key={q}
+                  className="group flex items-center gap-1 rounded-full border border-border/60 bg-background/70 py-1.5 pr-1.5 pl-3.5 text-xs text-muted-foreground backdrop-blur-sm transition-all duration-150 hover:border-wiki-link/40 hover:bg-wiki-link/5 hover:text-wiki-link"
+                >
+                  <button
+                    type="button"
+                    onClick={() => onSearch(q, mode)}
+                    className="cursor-pointer"
+                  >
+                    {q}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onRemoveHistory(q)
+                    }}
+                    className="flex size-4 items-center justify-center rounded-full opacity-0 transition-opacity group-hover:opacity-60 hover:bg-muted"
+                    title={t.landing.removeRecent(q)}
+                  >
+                    <X className="size-2.5" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Suggestions (hidden when recents exist) ───────────────── */}
+        {searchHistory.length === 0 && (
+          <div className="anim-fade-in-up anim-delay-3 flex flex-col items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground/60">
+              {t.landing.suggestions}
+            </span>
+            <div className="flex flex-wrap justify-center gap-2">
+              {t.landing.suggestionItems.map((s) => (
+                <button
+                  key={s.label}
+                  type="button"
+                  onClick={() =>
+                    onSearch(s.query, mode, {
+                      displayTitle: s.label,
+                      context: "context" in s ? s.context : undefined,
+                    })
+                  }
+                  className="rounded-full border border-border/60 bg-background/70 px-3.5 py-1.5 text-xs text-muted-foreground backdrop-blur-sm transition-all duration-150 hover:border-wiki-link/40 hover:bg-wiki-link/5 hover:text-wiki-link"
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </main>
   )

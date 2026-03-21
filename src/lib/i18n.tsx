@@ -102,6 +102,25 @@ const translations = {
       shared: "¡Enlace copiado!",
       download: "Descargar",
       expandImage: "Ver imagen",
+      relatedTitle: "También te puede interesar",
+      shareOnX: "Compartir en X",
+      shareOnWhatsApp: "Compartir en WhatsApp",
+      copyLink: "Copiar enlace",
+    },
+    toast: {
+      copied: "¡Copiado al portapapeles!",
+      linkCopied: "¡Enlace copiado!",
+      downloaded: "¡Artículo descargado!",
+    },
+    errors: {
+      unauthorized: "Clave API inválida. Verifica tu VITE_OPENROUTER_API_KEY.",
+      rateLimited:
+        "Demasiadas solicitudes. Espera un momento e intenta de nuevo.",
+      modelUnavailable:
+        "El modelo seleccionado no está disponible. Prueba con otro.",
+      serverError: "Error del servidor. Intenta de nuevo en unos segundos.",
+      networkError: "Error de conexión. Verifica tu Internet.",
+      generic: "Algo salió mal. Intenta de nuevo.",
     },
     loading: {
       didYouKnow: "¿Sabías que...?",
@@ -231,6 +250,24 @@ const translations = {
       shared: "Link copied!",
       download: "Download",
       expandImage: "View image",
+      relatedTitle: "You might also like",
+      shareOnX: "Share on X",
+      shareOnWhatsApp: "Share on WhatsApp",
+      copyLink: "Copy link",
+    },
+    toast: {
+      copied: "Copied to clipboard!",
+      linkCopied: "Link copied!",
+      downloaded: "Article downloaded!",
+    },
+    errors: {
+      unauthorized: "Invalid API key. Check your VITE_OPENROUTER_API_KEY.",
+      rateLimited: "Too many requests. Wait a moment and try again.",
+      modelUnavailable:
+        "The selected model is unavailable. Try a different one.",
+      serverError: "Server error. Try again in a few seconds.",
+      networkError: "Connection error. Check your Internet.",
+      generic: "Something went wrong. Please try again.",
     },
     loading: {
       didYouKnow: "Did you know...?",
