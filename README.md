@@ -1,21 +1,60 @@
-# React + TypeScript + Vite + shadcn/ui
+# Wikiped**IA**
 
-This is a template for a new Vite project with React, TypeScript, and shadcn/ui.
+Enciclopedia con inteligencia artificial. Busca cualquier tema y obtén un artículo completo generado por IA con infobox, imágenes y artículos relacionados.
 
-## Adding components
+## Stack
 
-To add components to your app, run the following command:
+- **React 19** + **TypeScript** + **Vite**
+- **Tailwind CSS v4** + **shadcn/ui**
+- **OpenRouter API** — streaming SSE con modelos gratuitos
+- **Wikipedia API** — imágenes por sección
+
+## Características
+
+- 3 modos de artículo: rápido, medio y extendido
+- Selector de modelo de IA (Nemotron, GLM, ChatGPT)
+- Infobox estructurado generado por IA
+- Imágenes automáticas por sección vía Wikipedia
+- Historial de búsquedas y caché de artículos en localStorage
+- Artículos relacionados sugeridos por IA
+- Interfaz en español e inglés
+- Modo claro y oscuro
+- Desplegable como Docker
+
+## Requisitos
+
+- Node.js 20+
+- pnpm
+- API key de [OpenRouter](https://openrouter.ai)
+
+## Instalación
 
 ```bash
-npx shadcn@latest add button
+pnpm install
 ```
 
-This will place the ui components in the `src/components` directory.
+Crea un archivo `.env` en la raíz:
 
-## Using components
+```
+VITE_OPENROUTER_API_KEY=tu_api_key
+```
 
-To use the components in your app, import them as follows:
+## Desarrollo
 
-```tsx
-import { Button } from "@/components/ui/button"
+```bash
+pnpm dev
+```
+
+## Build
+
+```bash
+pnpm build
+pnpm preview
+```
+
+## Docker
+
+```bash
+docker build -t wikipedia .
+docker run -p 80:80 wikipedia
 ```
