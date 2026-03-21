@@ -161,7 +161,7 @@ export function App() {
   const [error, setError] = useState<string | null>(null)
   const [currentMode, setCurrentMode] = useState<ArticleMode>("medio")
   const [currentModel, setCurrentModel] = useState<AIModelId>(
-    "meta-llama/llama-3.3-70b-instruct:free"
+    "openai/gpt-oss-120b:free"
   )
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchHistory, setSearchHistory] = useState<string[]>(getSearchHistory)

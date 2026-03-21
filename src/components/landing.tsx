@@ -1,12 +1,4 @@
-import {
-  Search,
-  Zap,
-  BookOpen,
-  GraduationCap,
-  Check,
-  Clock,
-  X,
-} from "lucide-react"
+import { Search, Zap, BookOpen, GraduationCap, Clock, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useState, type FormEvent, useRef, useEffect } from "react"
 import { cn } from "@/lib/utils"

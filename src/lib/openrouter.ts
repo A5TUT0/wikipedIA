@@ -8,12 +8,14 @@ export const AI_MODELS = [
     id: "nvidia/nemotron-3-super-120b-a12b:free",
     label: "Nemotron",
     logo: "https://cdn.jsdelivr.net/gh/lobehub/lobe-icons/packages/static-png/dark/nvidia-color.png",
+    darkLogo: undefined,
     recommended: false,
   },
   {
     id: "z-ai/glm-4.5-air:free",
     label: "GLM 4.5",
     logo: "https://cdn.jsdelivr.net/gh/lobehub/lobe-icons/packages/static-png/dark/zhipu-color.png",
+    darkLogo: undefined,
     recommended: false,
   },
   {
