@@ -162,11 +162,29 @@ export function Landing({
                 className="flex items-center opacity-60 transition-opacity hover:opacity-100"
                 title={AI_MODELS.find((m) => m.id === currentModel)?.label}
               >
-                <img
-                  src={AI_MODELS.find((m) => m.id === currentModel)?.logo}
-                  alt=""
-                  className="size-4.5 shrink-0 object-contain"
-                />
+                {(() => {
+                  const cur = AI_MODELS.find((m) => m.id === currentModel)
+                  return cur?.darkLogo ? (
+                    <>
+                      <img
+                        src={cur.logo}
+                        alt=""
+                        className="size-4.5 shrink-0 object-contain dark:hidden"
+                      />
+                      <img
+                        src={cur.darkLogo}
+                        alt=""
+                        className="hidden size-4.5 shrink-0 object-contain dark:block"
+                      />
+                    </>
+                  ) : (
+                    <img
+                      src={cur?.logo}
+                      alt=""
+                      className="size-4.5 shrink-0 object-contain"
+                    />
+                  )
+                })()}
               </button>
 
               {modelOpen && (
@@ -189,14 +207,31 @@ export function Landing({
                               : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                           )}
                         >
-                          <img
-                            src={m.logo}
-                            alt=""
-                            className="size-4 shrink-0 object-contain"
-                          />
+                          {m.darkLogo ? (
+                            <>
+                              <img
+                                src={m.logo}
+                                alt=""
+                                className="size-4 shrink-0 object-contain dark:hidden"
+                              />
+                              <img
+                                src={m.darkLogo}
+                                alt=""
+                                className="hidden size-4 shrink-0 object-contain dark:block"
+                              />
+                            </>
+                          ) : (
+                            <img
+                              src={m.logo}
+                              alt=""
+                              className="size-4 shrink-0 object-contain"
+                            />
+                          )}
                           <span className="flex-1">{m.label}</span>
-                          {isActive && (
-                            <Check className="size-3 shrink-0 text-wiki-link" />
+                          {m.recommended && (
+                            <span className="rounded-full bg-wiki-link/10 px-1.5 py-0.5 text-[10px] font-medium text-wiki-link">
+                              {t.landing.recommended}
+                            </span>
                           )}
                         </button>
                       )

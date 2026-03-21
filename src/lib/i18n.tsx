@@ -46,6 +46,7 @@ const translations = {
       searchPlaceholder: "Buscar cualquier tema...",
       searchButton: "Buscar",
       recents: "Recientes",
+      recommended: "Recomendado",
       suggestions: "Sugerencias",
       suggestionItems: [
         {
@@ -194,6 +195,7 @@ const translations = {
       searchPlaceholder: "Search any topic...",
       searchButton: "Search",
       recents: "Recent",
+      recommended: "Recommended",
       suggestions: "Suggestions",
       suggestionItems: [
         {

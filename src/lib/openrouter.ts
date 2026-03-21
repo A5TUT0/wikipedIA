@@ -5,29 +5,24 @@ export type ArticleMode = "rapido" | "medio" | "extendido"
 
 export const AI_MODELS = [
   {
-    id: "meta-llama/llama-3.3-70b-instruct:free",
-    label: "Llama 3.3 70B",
-    logo: "https://cdn.jsdelivr.net/gh/lobehub/lobe-icons/packages/static-png/dark/meta-color.png",
-  },
-  {
     id: "nvidia/nemotron-3-super-120b-a12b:free",
-    label: "Nemotron 120B",
+    label: "Nemotron",
     logo: "https://cdn.jsdelivr.net/gh/lobehub/lobe-icons/packages/static-png/dark/nvidia-color.png",
+    recommended: false,
   },
   {
     id: "z-ai/glm-4.5-air:free",
-    label: "GLM 4.5 Air",
+    label: "GLM 4.5",
     logo: "https://cdn.jsdelivr.net/gh/lobehub/lobe-icons/packages/static-png/dark/zhipu-color.png",
+    recommended: false,
   },
   {
     id: "openai/gpt-oss-120b:free",
-    label: "GPT OSS 120B",
+    label: "ChatGPT",
     logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ef/ChatGPT-Logo.svg/500px-ChatGPT-Logo.svg.png",
-  },
-  {
-    id: "google/gemma-3-27b-it:free",
-    label: "Gemma 3 27B",
-    logo: "https://cdn.jsdelivr.net/gh/lobehub/lobe-icons/packages/static-png/dark/google-color.png",
+    darkLogo:
+      "https://www.edigitalagency.com.au/wp-content/uploads/new-ChatGPT-icon-white-png-large-size.png",
+    recommended: true,
   },
 ] as const
 
