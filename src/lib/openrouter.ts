@@ -6,26 +6,36 @@ export type ArticleMode = "rapido" | "medio" | "extendido"
 const MODEL = "arcee-ai/trinity-large-preview:free"
 
 const INFOBOX_INSTRUCTION = `
-ANTES del artículo, genera un bloque de datos estructurados con el siguiente formato EXACTO:
+ANTES del artículo, genera un bloque de datos estructurados llamado INFOBOX.
+El INFOBOX debe contener entre 4 y 8 campos con datos RELEVANTES para el tema que el usuario solicite.
+
+Formato del bloque:
 [INFOBOX]
-Fundación: 1956, Dartmouth College
-Pionero: Alan Turing, John McCarthy
-Subcampo de: Ciencias de la computación
-Aplicaciones: Medicina, Finanzas, Robótica
+Clave1: Valor1
+Clave2: Valor2
 [/INFOBOX]
 
 REGLAS DEL INFOBOX:
-- Incluye entre 4 y 8 campos relevantes para el tema específico.
-- Cada clave (antes de los dos puntos) debe ser un nombre DESCRIPTIVO y REAL del dato: "Fundación", "País", "Autor", "Año", "Población", "Capital", "Idioma", "Categoría", "Descubridor", "Fórmula", etc.
-- NUNCA uses "Campo1", "Campo2", "NombreDescriptivo1" ni ningún nombre genérico o numerado. Usa siempre el nombre real del campo.
-- Los campos deben ser los más relevantes para el tema (fechas, personas, lugares, clasificaciones, datos numéricos clave).
-- Ejemplo correcto para "París":
+- Cada clave debe ser un nombre DESCRIPTIVO y REAL del dato: "Fundación", "País", "Autor", "Año", "Población", "Capital", "Idioma", "Categoría", "Descubridor", "Fórmula", etc.
+- NUNCA uses "Campo1", "Campo2", "NombreDescriptivo1", "Clave1" ni ningún nombre genérico o numerado. Usa siempre el nombre real del campo.
+- Los campos deben ser los más relevantes para el tema que el usuario busque (fechas, personas, lugares, clasificaciones, datos numéricos clave).
+- Ejemplo para "París":
+  [INFOBOX]
   País: Francia
   Fundación: Siglo III a.C.
   Población: 2,1 millones (ciudad)
   Superficie: 105 km²
+  [/INFOBOX]
+- Ejemplo para "Japón":
+  [INFOBOX]
+  Capital: Tokio
+  Población: 125 millones
+  Idioma oficial: Japonés
+  Moneda: Yen
+  [/INFOBOX]
+- IMPORTANTE: El INFOBOX debe ser sobre el tema que el usuario busque, NO sobre inteligencia artificial ni sobre los ejemplos anteriores.
 
-Después del bloque INFOBOX, genera el artículo en Markdown.`
+Después del bloque INFOBOX, genera el artículo en Markdown sobre el tema solicitado por el usuario.`
 
 const SAFETY_RULE = `- Si la consulta trata sobre contenido explícito para adultos, pornografía, drogas ilegales, violencia, autolesiones, odio u otros temas inapropiados o dañinos, responde ÚNICAMENTE con el texto: "Este tema no es apropiado para mí y no puedo darte una respuesta." No generes ningún artículo ni información adicional en ese caso.`
 
