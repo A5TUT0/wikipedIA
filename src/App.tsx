@@ -165,7 +165,7 @@ export function App() {
         `?q=${encodeURIComponent(searchQuery)}&mode=${selectedMode}`
       )
 
-      fetchImages(searchQuery, 6).then((imgs) => setImages(imgs))
+      fetchImages(searchQuery, 1).then((imgs) => setImages(imgs))
 
       let fullContent = ""
 

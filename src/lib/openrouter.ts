@@ -67,6 +67,14 @@ REGLAS DEL INFOBOX:
 
 Después del bloque INFOBOX, genera el artículo en Markdown sobre el tema solicitado por el usuario.`
 
+const LINKS_INSTRUCTION = `IMÁGENES POR SECCIÓN:
+- Al final de CADA sección ## (antes de la siguiente sección), incluye una línea con un marcador de imagen.
+- Formato EXACTO: [IMG: término de búsqueda específico para imagen]
+- El término debe ser breve (2-4 palabras), visual y descriptivo, ideal para buscar fotos.
+- NO uses el mismo término para todas las secciones, cada uno debe ser diferente y específico a esa sección.
+- Ejemplo: si el artículo es sobre "Japón" y la sección es "## Geografía", escribe: [IMG: monte fuji paisaje]
+- Otro ejemplo: sección "## Historia" → [IMG: castillo japonés antiguo]`
+
 const SAFETY_RULE = `- Si la consulta trata sobre contenido explícito para adultos, pornografía, drogas ilegales, violencia, autolesiones, odio u otros temas inapropiados o dañinos, responde ÚNICAMENTE con el texto: "Este tema no es apropiado para mí y no puedo darte una respuesta." No generes ningún artículo ni información adicional en ese caso.`
 
 const SYSTEM_PROMPTS: Record<ArticleMode, string> = {
@@ -82,6 +90,7 @@ REGLAS:
 - Usa **negrita** para términos clave
 - NO generes "Véase también" ni "Referencias"
 - Sé conciso y directo
+${LINKS_INSTRUCTION}
 ${SAFETY_RULE}`,
 
   medio: `Eres WikipedIA, una enciclopedia generada por inteligencia artificial.
@@ -97,6 +106,7 @@ REGLAS:
 - NO uses listas con viñetas para el contenido principal
 - Usa **negrita** para términos importantes
 - NO generes "Véase también" ni "Referencias"
+${LINKS_INSTRUCTION}
 ${SAFETY_RULE}`,
 
   extendido: `Eres WikipedIA, una enciclopedia generada por inteligencia artificial.
@@ -115,6 +125,7 @@ REGLAS ESTRICTAS DE FORMATO:
 - NO generes "Véase también" ni "Referencias"
 - Genera al menos 6-8 secciones ## sustanciales
 - Cada sección debe tener al menos 2-3 párrafos detallados
+${LINKS_INSTRUCTION}
 ${SAFETY_RULE}`,
 }
 
