@@ -185,7 +185,7 @@ export function SelectionToolbar({
           parent.insertBefore(existingMark.firstChild, existingMark)
         parent.removeChild(existingMark)
         sel.removeAllRanges()
-        setVisible(false)
+        dispatch({ type: "HIDE" })
         return
       }
 
