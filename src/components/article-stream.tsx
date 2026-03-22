@@ -17,7 +17,7 @@ import {
 } from "lucide-react"
 import type { ImageResult } from "@/lib/wikipedia-images"
 import { fetchImages } from "@/lib/wikipedia-images"
-import type { InfoboxData } from "@/App"
+import type { InfoboxData } from "@/lib/article-helpers"
 import type { ArticleMode } from "@/lib/openrouter"
 import { cn } from "@/lib/utils"
 import { SelectionToolbar } from "@/components/selection-toolbar"
@@ -54,11 +54,12 @@ function InlineMarkdown({ text }: { text: string }) {
   return (
     <>
       {parts.map((part, i) => {
+        const key = `${i}-${part.slice(0, 20)}`
         const linkMatch = part.match(/^\[(.+?)\]\((.+?)\)$/)
         if (linkMatch)
           return (
             <a
-              key={i}
+              key={key}
               href={linkMatch[2]}
               target="_blank"
               rel="noopener noreferrer"
@@ -68,10 +69,10 @@ function InlineMarkdown({ text }: { text: string }) {
             </a>
           )
         if (part.startsWith("**") && part.endsWith("**"))
-          return <strong key={i}>{part.slice(2, -2)}</strong>
+          return <strong key={key}>{part.slice(2, -2)}</strong>
         if (part.startsWith("*") && part.endsWith("*"))
-          return <em key={i}>{part.slice(1, -1)}</em>
-        return <span key={i}>{part}</span>
+          return <em key={key}>{part.slice(1, -1)}</em>
+        return <span key={key}>{part}</span>
       })}
     </>
   )
@@ -97,16 +98,17 @@ function LoadingEntertainment() {
   const { t } = useI18n()
   const facts = t.loading.facts
   const messages = t.loading.messages
-  const [factIndex, setFactIndex] = useState(0)
+  const [factState, setFactState] = useState({ index: 0, visible: true })
   const [msgIndex, setMsgIndex] = useState(0)
-  const [factVisible, setFactVisible] = useState(true)
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setFactVisible(false)
+      setFactState((prev) => ({ ...prev, visible: false }))
       setTimeout(() => {
-        setFactIndex((i) => (i + 1) % facts.length)
-        setFactVisible(true)
+        setFactState((prev) => ({
+          index: (prev.index + 1) % facts.length,
+          visible: true,
+        }))
       }, 350)
     }, 6000)
     return () => clearInterval(interval)
@@ -131,19 +133,19 @@ function LoadingEntertainment() {
         <p
           className="min-h-[3rem] text-[0.9rem] leading-relaxed text-foreground/80"
           style={{
-            opacity: factVisible ? 1 : 0,
+            opacity: factState.visible ? 1 : 0,
             transition: "opacity 0.35s ease",
           }}
         >
-          {facts[factIndex]}
+          {facts[factState.index]}
         </p>
         <div className="mt-3 flex gap-1">
-          {facts.map((_, i) => (
+          {facts.map((fact, i) => (
             <span
-              key={i}
+              key={fact}
               className={cn(
                 "inline-block h-1 rounded-full transition-all duration-500",
-                i === factIndex ? "w-4 bg-wiki-link" : "w-1 bg-border"
+                i === factState.index ? "w-4 bg-wiki-link" : "w-1 bg-border"
               )}
             />
           ))}
@@ -172,9 +174,16 @@ function Lightbox({ img, onClose }: { img: ImageResult; onClose: () => void }) {
   return (
     <div
       className="anim-fade-in fixed inset-0 z-[60] flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-label={img.title}
       onMouseDown={onClose}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") onClose()
+      }}
     >
       <div
+        role="presentation"
         className="relative w-full max-w-5xl overflow-hidden rounded-2xl bg-black shadow-2xl"
         onMouseDown={(e) => e.stopPropagation()}
       >
@@ -222,6 +231,14 @@ function ArticleImage({
 }) {
   return (
     <figure
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault()
+          onClick()
+        }
+      }}
       className="group relative mb-5 cursor-zoom-in overflow-hidden rounded-xl shadow-sm transition-shadow duration-200 hover:shadow-lg"
       onClick={onClick}
     >
@@ -320,35 +337,43 @@ function MarkdownArticle({
       level?: number
       text: string
       id?: string
+      uid: number
     }[] = []
     let currentParagraph = ""
+    let uid = 0
 
     for (const line of lines) {
       const imgMatch = line.trim().match(/^\[IMG:\s*(.+?)\]$/)
       if (imgMatch) {
         if (currentParagraph.trim()) {
-          result.push({ type: "p", text: currentParagraph.trim() })
+          result.push({ type: "p", text: currentParagraph.trim(), uid: uid++ })
           currentParagraph = ""
         }
-        result.push({ type: "img", text: imgMatch[1].trim() })
+        result.push({ type: "img", text: imgMatch[1].trim(), uid: uid++ })
         continue
       }
 
       const hMatch = line.match(/^(#{1,3})\s+(.+)/)
       if (hMatch) {
         if (currentParagraph.trim()) {
-          result.push({ type: "p", text: currentParagraph.trim() })
+          result.push({ type: "p", text: currentParagraph.trim(), uid: uid++ })
           currentParagraph = ""
         }
         const level = hMatch[1].length
         const text = hMatch[2]
-        result.push({ type: "heading", level, text, id: toSlug(text) })
+        result.push({
+          type: "heading",
+          level,
+          text,
+          id: toSlug(text),
+          uid: uid++,
+        })
         continue
       }
 
       if (line.trim() === "") {
         if (currentParagraph.trim()) {
-          result.push({ type: "p", text: currentParagraph.trim() })
+          result.push({ type: "p", text: currentParagraph.trim(), uid: uid++ })
           currentParagraph = ""
         }
         continue
@@ -356,10 +381,14 @@ function MarkdownArticle({
 
       if (line.match(/^[-*]\s+/)) {
         if (currentParagraph.trim()) {
-          result.push({ type: "p", text: currentParagraph.trim() })
+          result.push({ type: "p", text: currentParagraph.trim(), uid: uid++ })
           currentParagraph = ""
         }
-        result.push({ type: "li", text: line.replace(/^[-*]\s+/, "") })
+        result.push({
+          type: "li",
+          text: line.replace(/^[-*]\s+/, ""),
+          uid: uid++,
+        })
         continue
       }
 
@@ -367,17 +396,17 @@ function MarkdownArticle({
     }
 
     if (currentParagraph.trim())
-      result.push({ type: "p", text: currentParagraph.trim() })
+      result.push({ type: "p", text: currentParagraph.trim(), uid: uid++ })
     return result
   }, [content])
 
   return (
     <div className="article-prose flex flex-col gap-3">
-      {blocks.map((block, i) => {
+      {blocks.map((block) => {
         if (block.type === "img") {
           return (
             <LazyImage
-              key={`img-${i}-${block.text}`}
+              key={`img-${block.uid}`}
               keyword={block.text}
               onImageClick={onImageClick}
               expandLabel={t.article.expandImage}
@@ -390,7 +419,7 @@ function MarkdownArticle({
 
           if (block.level === 2) {
             return (
-              <div key={i} className="mt-4">
+              <div key={block.uid} className="mt-4">
                 <div id={block.id} className="scroll-mt-20">
                   <h2 className="mb-2 border-b border-border/50 pb-1.5 font-serif text-[1.4rem] font-semibold text-foreground">
                     <InlineMarkdown text={block.text} />
@@ -403,7 +432,7 @@ function MarkdownArticle({
           if (block.level === 3) {
             return (
               <h3
-                key={i}
+                key={block.uid}
                 id={block.id}
                 className="mt-2 scroll-mt-20 font-serif text-[1.15rem] font-semibold text-foreground/90"
               >
@@ -416,7 +445,7 @@ function MarkdownArticle({
         if (block.type === "li") {
           return (
             <li
-              key={i}
+              key={block.uid}
               className="ml-5 list-disc font-serif text-[0.9375rem] leading-[1.8] text-foreground/90"
             >
               <InlineMarkdown text={block.text} />
@@ -426,7 +455,7 @@ function MarkdownArticle({
 
         return (
           <p
-            key={i}
+            key={block.uid}
             className="font-serif text-[0.9375rem] leading-[1.8] text-foreground/90"
           >
             <InlineMarkdown text={block.text} />
@@ -544,13 +573,15 @@ export function ArticleStream({
   const articleBodyRef = useRef<HTMLDivElement>(null)
   const hasClosedReasoning = useRef(false)
 
-  useEffect(() => {
-    if (content && !hasClosedReasoning.current) {
-      hasClosedReasoning.current = true
-      setReasoningOpen(false)
-    }
-    if (!content && !reasoning) hasClosedReasoning.current = false
-  }, [content, reasoning])
+  // Auto-collapse reasoning when content arrives (derived state during render)
+  if (content && !hasClosedReasoning.current) {
+    hasClosedReasoning.current = true
+    if (reasoningOpen) setReasoningOpen(false)
+  }
+  if (!content && !reasoning) {
+    hasClosedReasoning.current = false
+    if (!reasoningOpen) setReasoningOpen(true)
+  }
 
   const displayTitle = useMemo(() => {
     const match = content.match(/^#\s+(.+)/)

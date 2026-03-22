@@ -121,15 +121,18 @@ export function Header({
 }: HeaderProps) {
   const { theme, setTheme } = useTheme()
   const { t } = useI18n()
-  const [query, setQuery] = useState(currentQuery ?? "")
+  const [query, setQuery] = useState("")
   const [focused, setFocused] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const settingsBtnRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
+  // Sync query with prop during render (avoids useEffect for derived state)
+  const [prevQuery, setPrevQuery] = useState<string | undefined>(undefined)
+  if (currentQuery !== prevQuery) {
+    setPrevQuery(currentQuery)
     setQuery(currentQuery ?? "")
-  }, [currentQuery])
+  }
 
   useEffect(() => {
     if (focusTrigger && mode === "article") {

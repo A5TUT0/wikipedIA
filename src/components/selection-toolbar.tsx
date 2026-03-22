@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useReducer, useEffect, useRef, useCallback } from "react"
 import { Copy, Check, Search, Eraser } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useI18n } from "@/lib/i18n"
@@ -6,14 +6,64 @@ import { useI18n } from "@/lib/i18n"
 // Semi-transparent colors — work in both light and dark mode
 const HIGHLIGHT_COLORS = [
   { bg: "rgba(253, 224, 71,  0.45)", key: "yellow" as const },
-  { bg: "rgba(134, 239, 172, 0.45)", key: "green"  as const },
-  { bg: "rgba(125, 211, 252, 0.45)", key: "blue"   as const },
-  { bg: "rgba(249, 168, 212, 0.45)", key: "pink"   as const },
+  { bg: "rgba(134, 239, 172, 0.45)", key: "green" as const },
+  { bg: "rgba(125, 211, 252, 0.45)", key: "blue" as const },
+  { bg: "rgba(249, 168, 212, 0.45)", key: "pink" as const },
   { bg: "rgba(253, 186, 116, 0.45)", key: "orange" as const },
 ]
 
 // Max chars for a reasonable WikipedIA search query
 const SEARCH_MAX_CHARS = 50
+
+interface ToolbarState {
+  visible: boolean
+  position: { top: number; left: number }
+  selText: string
+  copied: boolean
+  isHighlighted: boolean
+}
+
+type ToolbarAction =
+  | {
+      type: "SHOW"
+      position: { top: number; left: number }
+      selText: string
+      isHighlighted: boolean
+    }
+  | { type: "HIDE" }
+  | { type: "COPIED" }
+  | { type: "RESET_COPIED" }
+
+const initialToolbarState: ToolbarState = {
+  visible: false,
+  position: { top: 0, left: 0 },
+  selText: "",
+  copied: false,
+  isHighlighted: false,
+}
+
+function toolbarReducer(
+  state: ToolbarState,
+  action: ToolbarAction
+): ToolbarState {
+  switch (action.type) {
+    case "SHOW":
+      return {
+        ...state,
+        visible: true,
+        position: action.position,
+        selText: action.selText,
+        isHighlighted: action.isHighlighted,
+        copied: false,
+      }
+    case "HIDE":
+      return { ...state, visible: false }
+    case "COPIED":
+      return { ...state, copied: true }
+    case "RESET_COPIED":
+      return { ...state, copied: false, visible: false }
+  }
+}
 
 interface SelectionToolbarProps {
   containerRef: React.RefObject<HTMLElement | null>
@@ -25,18 +75,14 @@ export function SelectionToolbar({
   onSearch,
 }: SelectionToolbarProps) {
   const { t } = useI18n()
-  const [visible, setVisible] = useState(false)
-  const [position, setPosition] = useState({ top: 0, left: 0 })
-  const [selText, setSelText] = useState("")
-  const [copied, setCopied] = useState(false)
-  const [isHighlighted, setIsHighlighted] = useState(false)
+  const [state, dispatch] = useReducer(toolbarReducer, initialToolbarState)
   const toolbarRef = useRef<HTMLDivElement>(null)
 
   // ── Detect & position ────────────────────────────────────────────────
   const checkSelection = useCallback(() => {
     const sel = window.getSelection()
     if (!sel || sel.isCollapsed || !sel.toString().trim()) {
-      setVisible(false)
+      dispatch({ type: "HIDE" })
       return
     }
 
@@ -44,7 +90,7 @@ export function SelectionToolbar({
       const range = sel.getRangeAt(0)
       const ancestor = range.commonAncestorContainer
       if (!containerRef.current.contains(ancestor)) {
-        setVisible(false)
+        dispatch({ type: "HIDE" })
         return
       }
     }
@@ -68,22 +114,21 @@ export function SelectionToolbar({
       containsMark = !!tempDiv.querySelector("mark[data-highlight]")
     }
 
-    setIsHighlighted(!!(enclosingMark || containsMark))
-    setSelText(text)
-    setPosition({
-      top: rect.top - 12,
-      left: rect.left + rect.width / 2,
+    dispatch({
+      type: "SHOW",
+      position: { top: rect.top - 12, left: rect.left + rect.width / 2 },
+      selText: text,
+      isHighlighted: !!(enclosingMark || containsMark),
     })
-    setVisible(true)
   }, [containerRef])
 
   // Hide on scroll
   useEffect(() => {
-    if (!visible) return
-    const hide = () => setVisible(false)
+    if (!state.visible) return
+    const hide = () => dispatch({ type: "HIDE" })
     window.addEventListener("scroll", hide, { passive: true })
     return () => window.removeEventListener("scroll", hide)
-  }, [visible])
+  }, [state.visible])
 
   useEffect(() => {
     const onUp = () => checkSelection()
@@ -93,13 +138,13 @@ export function SelectionToolbar({
     const onDown = (e: MouseEvent) => {
       if (!toolbarRef.current?.contains(e.target as Node)) {
         setTimeout(() => {
-          if (!window.getSelection()?.toString()) setVisible(false)
+          if (!window.getSelection()?.toString()) dispatch({ type: "HIDE" })
         }, 80)
       }
     }
 
     document.addEventListener("mouseup", onUp)
-    document.addEventListener("touchend", onUp)
+    document.addEventListener("touchend", onUp, { passive: true })
     document.addEventListener("keyup", onKeyUp)
     document.addEventListener("mousedown", onDown)
     return () => {
@@ -112,12 +157,9 @@ export function SelectionToolbar({
 
   // ── Actions ──────────────────────────────────────────────────────────
   function handleCopy() {
-    navigator.clipboard.writeText(selText).then(() => {
-      setCopied(true)
-      setTimeout(() => {
-        setCopied(false)
-        setVisible(false)
-      }, 1500)
+    navigator.clipboard.writeText(state.selText).then(() => {
+      dispatch({ type: "COPIED" })
+      setTimeout(() => dispatch({ type: "RESET_COPIED" }), 1500)
     })
   }
 
@@ -157,7 +199,7 @@ export function SelectionToolbar({
     } catch {
       // Skip if selection spans complex node boundaries
     }
-    setVisible(false)
+    dispatch({ type: "HIDE" })
   }
 
   function removeHighlight() {
@@ -200,35 +242,35 @@ export function SelectionToolbar({
     } catch {
       // Skip if selection spans complex node boundaries
     }
-    setVisible(false)
+    dispatch({ type: "HIDE" })
   }
 
   function handleSearch() {
-    if (selText && onSearch) {
-      onSearch(selText)
+    if (state.selText && onSearch) {
+      onSearch(state.selText)
       window.getSelection()?.removeAllRanges()
-      setVisible(false)
+      dispatch({ type: "HIDE" })
     }
   }
 
-  const canSearch = onSearch && selText.length <= SEARCH_MAX_CHARS
+  const canSearch = onSearch && state.selText.length <= SEARCH_MAX_CHARS
 
-  if (!visible) return null
+  if (!state.visible) return null
 
   return (
     <div
       ref={toolbarRef}
       className="fixed z-50"
       style={{
-        top: position.top,
-        left: position.left,
+        top: state.position.top,
+        left: state.position.left,
         transform: "translate(-50%, -100%)",
       }}
     >
       <div className="flex items-center gap-px rounded-xl border border-border/70 bg-background/95 p-1 shadow-xl shadow-black/10 backdrop-blur-md">
         {/* Copy */}
         <ActionBtn onClick={handleCopy} title={t.toolbar.copy}>
-          {copied ? (
+          {state.copied ? (
             <>
               <Check className="size-3.5 text-green-500" />
               <span className="text-green-500">{t.toolbar.copied}</span>
@@ -272,10 +314,13 @@ export function SelectionToolbar({
         )}
 
         {/* Remove highlight — only when selection overlaps a mark */}
-        {isHighlighted && (
+        {state.isHighlighted && (
           <>
             <Divider />
-            <ActionBtn onClick={removeHighlight} title={t.toolbar.removeHighlight}>
+            <ActionBtn
+              onClick={removeHighlight}
+              title={t.toolbar.removeHighlight}
+            >
               <Eraser className="size-3.5" />
               <span>{t.toolbar.removeHighlight}</span>
             </ActionBtn>

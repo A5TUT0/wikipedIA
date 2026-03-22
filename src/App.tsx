@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react"
 import { Header } from "@/components/header"
 import {
   TableOfContents,
@@ -18,178 +25,123 @@ import { fetchImages, type ImageResult } from "@/lib/wikipedia-images"
 import { useI18n, AI_LANG_NAMES } from "@/lib/i18n"
 import { ArrowUp } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-export type InfoboxData = Record<string, string>
-
-/** Extract [INFOBOX]...[/INFOBOX] block from content */
-function extractInfobox(raw: string): {
-  infobox: InfoboxData | null
-  cleanContent: string
-} {
-  const match = raw.match(/\[INFOBOX\]\n?([\s\S]*?)\[\/INFOBOX\]\n?/)
-  if (!match) {
-    if (raw.startsWith("[INFOBOX]") && !raw.includes("[/INFOBOX]")) {
-      return { infobox: null, cleanContent: "" }
-    }
-    return { infobox: null, cleanContent: raw }
-  }
-
-  const pairs: InfoboxData = {}
-  const lines = match[1].trim().split("\n")
-  for (const line of lines) {
-    const colonIdx = line.indexOf(":")
-    if (colonIdx > 0) {
-      const key = line.slice(0, colonIdx).trim()
-      const value = line.slice(colonIdx + 1).trim()
-      if (key && value) pairs[key] = value
-    }
-  }
-
-  const cleanContent = raw.replace(match[0], "").trim()
-  return {
-    infobox: Object.keys(pairs).length > 0 ? pairs : null,
-    cleanContent,
-  }
-}
-
-/** Extract [RELATED]...[/RELATED] block from content */
-function extractRelated(raw: string): {
-  related: string[]
-  cleanContent: string
-} {
-  const match = raw.match(/\[RELATED\]\n?([\s\S]*?)\[\/RELATED\]\n?/)
-  if (!match) return { related: [], cleanContent: raw }
-  const items = match[1]
-    .trim()
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean)
-  return { related: items, cleanContent: raw.replace(match[0], "").trim() }
-}
-
-// ── Search history helpers ────────────────────────────────────────────────────
-const HISTORY_KEY = "wikia-search-history"
-const MAX_HISTORY = 12
-
-function getSearchHistory(): string[] {
-  try {
-    return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? "[]")
-  } catch {
-    return []
-  }
-}
-
-function addToHistory(query: string) {
-  const history = getSearchHistory().filter(
-    (h) => h.toLowerCase() !== query.toLowerCase()
-  )
-  history.unshift(query)
-  if (history.length > MAX_HISTORY) history.length = MAX_HISTORY
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
-}
-
-function removeFromHistory(query: string) {
-  const history = getSearchHistory().filter(
-    (h) => h.toLowerCase() !== query.toLowerCase()
-  )
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
-}
-
-// ── Article cache helpers ─────────────────────────────────────────────────────
-const CACHE_KEY = "wikia-article-cache"
-const MAX_CACHE = 20
-
-interface CachedArticle {
-  content: string
-  mode: ArticleMode
-  timestamp: number
-}
-
-function getCachedArticle(
-  query: string,
-  mode: ArticleMode
-): CachedArticle | null {
-  try {
-    const cache: Record<string, CachedArticle> = JSON.parse(
-      localStorage.getItem(CACHE_KEY) ?? "{}"
-    )
-    const key = `${query.toLowerCase()}::${mode}`
-    const entry = cache[key]
-    if (!entry) return null
-    // Cache expires after 24h
-    if (Date.now() - entry.timestamp > 24 * 60 * 60 * 1000) return null
-    return entry
-  } catch {
-    return null
-  }
-}
-
-function cacheArticle(query: string, mode: ArticleMode, content: string) {
-  try {
-    const cache: Record<string, CachedArticle> = JSON.parse(
-      localStorage.getItem(CACHE_KEY) ?? "{}"
-    )
-    const key = `${query.toLowerCase()}::${mode}`
-    cache[key] = { content, mode, timestamp: Date.now() }
-    // Evict oldest if too many
-    const keys = Object.keys(cache)
-    if (keys.length > MAX_CACHE) {
-      const sorted = keys.sort(
-        (a, b) => (cache[a].timestamp ?? 0) - (cache[b].timestamp ?? 0)
-      )
-      for (let i = 0; i < keys.length - MAX_CACHE; i++) {
-        delete cache[sorted[i]]
-      }
-    }
-    localStorage.setItem(CACHE_KEY, JSON.stringify(cache))
-  } catch {
-    // Storage full or unavailable
-  }
-}
+import { extractInfobox, extractRelated } from "@/lib/article-helpers"
+import {
+  getSearchHistory,
+  addToHistory,
+  removeFromHistory,
+  getCachedArticle,
+  cacheArticle,
+} from "@/lib/storage"
 
 type AppView = "landing" | "article"
 
-export function App() {
-  const { t, aiLang } = useI18n()
-  const [view, setView] = useState<AppView>("landing")
-  const [query, setQuery] = useState("")
-  const [displayTitle, setDisplayTitle] = useState("")
-  const [reasoning, setReasoning] = useState("")
-  const [content, setContent] = useState("")
-  const [images, setImages] = useState<ImageResult[]>([])
-  const [isStreaming, setIsStreaming] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [currentMode, setCurrentMode] = useState<ArticleMode>("medio")
-  const [currentModel, setCurrentModel] = useState<AIModelId>(
-    "openai/gpt-oss-120b:free"
-  )
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [searchHistory, setSearchHistory] = useState<string[]>(getSearchHistory)
-  const [transitioning, setTransitioning] = useState(false)
+interface ArticleState {
+  view: AppView
+  query: string
+  displayTitle: string
+  reasoning: string
+  content: string
+  images: ImageResult[]
+  isStreaming: boolean
+  error: string | null
+  currentMode: ArticleMode
+  transitioning: boolean
+  searchHistory: string[]
+}
 
-  // Scroll state for reading progress + back-to-top
+type ArticleAction =
+  | {
+      type: "START_SEARCH"
+      query: string
+      displayTitle: string
+      mode: ArticleMode
+      history: string[]
+    }
+  | { type: "APPEND_REASONING"; chunk: string }
+  | { type: "SET_CONTENT"; content: string }
+  | { type: "SET_IMAGES"; images: ImageResult[] }
+  | { type: "DONE" }
+  | { type: "ERROR"; error: string }
+  | { type: "FROM_CACHE"; content: string }
+  | { type: "RESET" }
+  | { type: "SHOW_ARTICLE" }
+  | { type: "SHOW_LANDING" }
+  | { type: "FINISH_TRANSITION" }
+  | { type: "SET_MODE"; mode: ArticleMode }
+  | { type: "SET_HISTORY"; history: string[] }
+
+const initialArticleState: ArticleState = {
+  view: "landing",
+  query: "",
+  displayTitle: "",
+  reasoning: "",
+  content: "",
+  images: [],
+  isStreaming: false,
+  error: null,
+  currentMode: "medio",
+  transitioning: false,
+  searchHistory: getSearchHistory(),
+}
+
+function articleReducer(
+  state: ArticleState,
+  action: ArticleAction
+): ArticleState {
+  switch (action.type) {
+    case "START_SEARCH":
+      return {
+        ...state,
+        query: action.query,
+        displayTitle: action.displayTitle,
+        reasoning: "",
+        content: "",
+        images: [],
+        error: null,
+        isStreaming: true,
+        currentMode: action.mode,
+        transitioning: true,
+        searchHistory: action.history,
+      }
+    case "APPEND_REASONING":
+      return { ...state, reasoning: state.reasoning + action.chunk }
+    case "SET_CONTENT":
+      return { ...state, content: action.content }
+    case "SET_IMAGES":
+      return { ...state, images: action.images }
+    case "DONE":
+      return { ...state, isStreaming: false }
+    case "ERROR":
+      return { ...state, isStreaming: false, error: action.error }
+    case "FROM_CACHE":
+      return { ...state, content: action.content, isStreaming: false }
+    case "RESET":
+      return {
+        ...initialArticleState,
+        currentMode: state.currentMode,
+        searchHistory: state.searchHistory,
+        transitioning: true,
+      }
+    case "SHOW_ARTICLE":
+      return { ...state, view: "article" }
+    case "SHOW_LANDING":
+      return { ...state, view: "landing" }
+    case "FINISH_TRANSITION":
+      return { ...state, transitioning: false }
+    case "SET_MODE":
+      return { ...state, currentMode: action.mode }
+    case "SET_HISTORY":
+      return { ...state, searchHistory: action.history }
+  }
+}
+
+function useScrollProgress(isActive: boolean) {
   const [readingProgress, setReadingProgress] = useState(0)
   const [showBackToTop, setShowBackToTop] = useState(false)
 
-  // Trigger to focus header search (Cmd/Ctrl+K)
-  const [searchFocusTrigger, setSearchFocusTrigger] = useState(0)
-
-  const abortRef = useRef<AbortController | null>(null)
-
-  const { infobox, cleanContent: contentAfterInfobox } = useMemo(
-    () => extractInfobox(content),
-    [content]
-  )
-  const { related, cleanContent } = useMemo(
-    () => extractRelated(contentAfterInfobox),
-    [contentAfterInfobox]
-  )
-  const tocItems = useMemo(() => extractToc(cleanContent), [cleanContent])
-
-  // ── Scroll listener (article only) ──────────────────────────────────
   useEffect(() => {
-    if (view !== "article") return
-
+    if (!isActive) return
     const handleScroll = () => {
       const scrollTop = window.scrollY
       const docHeight =
@@ -199,18 +151,45 @@ export function App() {
       )
       setShowBackToTop(scrollTop > 400)
     }
-
     window.addEventListener("scroll", handleScroll, { passive: true })
     return () => window.removeEventListener("scroll", handleScroll)
-  }, [view])
+  }, [isActive])
 
-  // Reset scroll state when leaving article
-  useEffect(() => {
-    if (view === "landing") {
-      setReadingProgress(0)
-      setShowBackToTop(false)
-    }
-  }, [view])
+  const reset = useCallback(() => {
+    setReadingProgress(0)
+    setShowBackToTop(false)
+  }, [])
+
+  return { readingProgress, showBackToTop, resetScroll: reset }
+}
+
+export default function App() {
+  const { t, aiLang } = useI18n()
+  const [article, dispatch] = useReducer(articleReducer, initialArticleState)
+  const [currentModel, setCurrentModel] = useState<AIModelId>(
+    "openai/gpt-oss-120b:free"
+  )
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  // Scroll state for reading progress + back-to-top
+  const { readingProgress, showBackToTop, resetScroll } = useScrollProgress(
+    article.view === "article"
+  )
+
+  // Trigger to focus header search (Cmd/Ctrl+K)
+  const [searchFocusTrigger, setSearchFocusTrigger] = useState(0)
+
+  const abortRef = useRef<AbortController | null>(null)
+
+  const { infobox, cleanContent: contentAfterInfobox } = useMemo(
+    () => extractInfobox(article.content),
+    [article.content]
+  )
+  const { related, cleanContent } = useMemo(
+    () => extractRelated(contentAfterInfobox),
+    [contentAfterInfobox]
+  )
+  const tocItems = useMemo(() => extractToc(cleanContent), [cleanContent])
 
   // ── Load from URL params on mount ───────────────────────────────────
   useEffect(() => {
@@ -227,7 +206,7 @@ export function App() {
 
   // ── Cmd/Ctrl+K → focus header search ────────────────────────────────
   useEffect(() => {
-    if (view !== "article") return
+    if (article.view !== "article") return
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault()
@@ -236,7 +215,7 @@ export function App() {
     }
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [view])
+  }, [article.view])
 
   // ── Core search handler ──────────────────────────────────────────────
   const handleSearch = useCallback(
@@ -245,7 +224,7 @@ export function App() {
       mode?: ArticleMode,
       options?: { displayTitle?: string; context?: string }
     ) => {
-      const selectedMode = mode ?? currentMode
+      const selectedMode = mode ?? article.currentMode
 
       abortRef.current?.abort()
       const controller = new AbortController()
@@ -253,22 +232,19 @@ export function App() {
 
       // Save to history
       addToHistory(options?.displayTitle ?? searchQuery)
-      setSearchHistory(getSearchHistory())
 
-      setQuery(searchQuery)
-      setDisplayTitle(options?.displayTitle ?? searchQuery)
-      setCurrentMode(selectedMode)
-      setReasoning("")
-      setContent("")
-      setImages([])
-      setError(null)
-      setIsStreaming(true)
+      dispatch({
+        type: "START_SEARCH",
+        query: searchQuery,
+        displayTitle: options?.displayTitle ?? searchQuery,
+        mode: selectedMode,
+        history: getSearchHistory(),
+      })
 
       // Transition animation
-      setTransitioning(true)
       requestAnimationFrame(() => {
-        setView("article")
-        setTimeout(() => setTransitioning(false), 50)
+        dispatch({ type: "SHOW_ARTICLE" })
+        setTimeout(() => dispatch({ type: "FINISH_TRANSITION" }), 50)
       })
 
       window.scrollTo({ top: 0 })
@@ -278,13 +254,14 @@ export function App() {
         `?q=${encodeURIComponent(searchQuery)}&mode=${selectedMode}`
       )
 
-      fetchImages(searchQuery, 1).then((imgs) => setImages(imgs))
+      fetchImages(searchQuery, 1).then((imgs) =>
+        dispatch({ type: "SET_IMAGES", images: imgs })
+      )
 
       // Check cache first
       const cached = getCachedArticle(searchQuery, selectedMode)
       if (cached && !options?.context) {
-        setContent(cached.content)
-        setIsStreaming(false)
+        dispatch({ type: "FROM_CACHE", content: cached.content })
         return
       }
 
@@ -305,19 +282,18 @@ export function App() {
         selectedMode,
         {
           onReasoning(chunk) {
-            setReasoning((prev) => prev + chunk)
+            dispatch({ type: "APPEND_REASONING", chunk })
           },
           onContent(chunk) {
             fullContent += chunk
-            setContent(fullContent)
+            dispatch({ type: "SET_CONTENT", content: fullContent })
           },
           onDone() {
-            setIsStreaming(false)
+            dispatch({ type: "DONE" })
             cacheArticle(searchQuery, selectedMode, fullContent)
           },
           onError(err) {
-            setIsStreaming(false)
-            setError(errorMap[err] ?? err)
+            dispatch({ type: "ERROR", error: errorMap[err] ?? err })
           },
         },
         controller.signal,
@@ -326,51 +302,46 @@ export function App() {
         currentModel
       )
     },
-    [currentMode, aiLang, currentModel, t.errors]
+    [article.currentMode, aiLang, currentModel, t.errors]
   )
 
   const handleBack = useCallback(() => {
     abortRef.current?.abort()
     window.history.replaceState(null, "", window.location.pathname)
-    setTransitioning(true)
+    resetScroll()
+    dispatch({ type: "RESET" })
     requestAnimationFrame(() => {
-      setView("landing")
-      setTimeout(() => setTransitioning(false), 50)
+      dispatch({ type: "SHOW_LANDING" })
+      setTimeout(() => dispatch({ type: "FINISH_TRANSITION" }), 50)
     })
-    setQuery("")
-    setDisplayTitle("")
-    setReasoning("")
-    setContent("")
-    setImages([])
-    setIsStreaming(false)
-    setError(null)
-  }, [])
+  }, [resetScroll])
 
   const handleRemoveHistory = useCallback((q: string) => {
     removeFromHistory(q)
-    setSearchHistory(getSearchHistory())
+    dispatch({ type: "SET_HISTORY", history: getSearchHistory() })
   }, [])
 
   const handleRetry = useCallback(() => {
-    handleSearch(query, currentMode)
-  }, [handleSearch, query, currentMode])
+    handleSearch(article.query, article.currentMode)
+  }, [handleSearch, article.query, article.currentMode])
 
   // ── Landing view ─────────────────────────────────────────────────────
-  if (view === "landing") {
+  if (article.view === "landing") {
     return (
       <div
         className={cn(
           "flex h-svh flex-col overflow-hidden transition-opacity duration-300",
-          transitioning ? "opacity-0" : "opacity-100"
+          article.transitioning ? "opacity-0" : "opacity-100"
         )}
       >
         <Header mode="landing" onBack={handleBack} />
         <Landing
           onSearch={handleSearch}
-          initialMode={currentMode}
+          mode={article.currentMode}
+          onModeChange={(mode) => dispatch({ type: "SET_MODE", mode })}
           currentModel={currentModel}
           onModelChange={setCurrentModel}
-          searchHistory={searchHistory}
+          searchHistory={article.searchHistory}
           onRemoveHistory={handleRemoveHistory}
         />
         <Footer />
@@ -384,7 +355,7 @@ export function App() {
     <div
       className={cn(
         "flex min-h-svh flex-col transition-opacity duration-300",
-        transitioning ? "opacity-0" : "opacity-100"
+        article.transitioning ? "opacity-0" : "opacity-100"
       )}
     >
       {/* Reading progress bar */}
@@ -396,9 +367,9 @@ export function App() {
       <Header
         mode="article"
         onMenuToggle={() => setMobileMenuOpen(true)}
-        onSearch={(q) => handleSearch(q, currentMode)}
+        onSearch={(q) => handleSearch(q, article.currentMode)}
         onBack={handleBack}
-        currentQuery={query}
+        currentQuery={article.query}
         focusTrigger={searchFocusTrigger}
       />
 
@@ -424,16 +395,16 @@ export function App() {
         {/* Center: Article */}
         <main className="max-w-3xl min-w-0 flex-1">
           <ArticleStream
-            title={displayTitle}
-            mode={currentMode}
-            reasoning={reasoning}
+            title={article.displayTitle}
+            mode={article.currentMode}
+            reasoning={article.reasoning}
             content={cleanContent}
-            isStreaming={isStreaming}
-            images={images}
+            isStreaming={article.isStreaming}
+            images={article.images}
             infobox={infobox}
-            error={error}
+            error={article.error}
             onRetry={handleRetry}
-            onSearch={(q) => handleSearch(q, currentMode)}
+            onSearch={(q) => handleSearch(q, article.currentMode)}
             related={related}
           />
         </main>
@@ -460,5 +431,3 @@ export function App() {
     </div>
   )
 }
-
-export default App

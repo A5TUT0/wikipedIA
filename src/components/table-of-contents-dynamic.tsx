@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, useCallback } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 
-export interface TocItem {
+interface TocItem {
   id: string
   title: string
   level: number

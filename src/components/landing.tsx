@@ -11,7 +11,8 @@ interface LandingProps {
     mode: ArticleMode,
     options?: { displayTitle?: string; context?: string }
   ) => void
-  initialMode?: ArticleMode
+  mode: ArticleMode
+  onModeChange: (mode: ArticleMode) => void
   currentModel: AIModelId
   onModelChange: (model: AIModelId) => void
   searchHistory: string[]
@@ -28,7 +29,8 @@ const ARTICLE_MODES: ArticleMode[] = ["rapido", "medio", "extendido"]
 
 export function Landing({
   onSearch,
-  initialMode = "medio",
+  mode,
+  onModeChange,
   currentModel,
   onModelChange,
   searchHistory,
@@ -36,7 +38,6 @@ export function Landing({
 }: LandingProps) {
   const { t } = useI18n()
   const [query, setQuery] = useState("")
-  const [mode, setMode] = useState<ArticleMode>(initialMode)
   const [focused, setFocused] = useState(false)
   const [modelOpen, setModelOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -96,7 +97,7 @@ export function Landing({
                 key={m}
                 type="button"
                 title={conf.desc}
-                onClick={() => setMode(m)}
+                onClick={() => onModeChange(m)}
                 className={cn(
                   "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
                   active
