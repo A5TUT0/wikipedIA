@@ -155,24 +155,7 @@
   background: var(--muted-foreground);
 }
 
-/* ── Streaming cursor ─────────────────────────────────────────────────── */
-@keyframes blink {
-  0%,
-  50% {
-    opacity: 1;
-  }
-  51%,
-  100% {
-    opacity: 0;
-  }
-}
 
-.streaming-cursor::after {
-  content: "▊";
-  animation: blink 1s step-end infinite;
-  color: var(--wiki-link);
-  margin-left: 2px;
-}
 
 /* ── Entrance animations ──────────────────────────────────────────────── */
 @keyframes fadeInUp {

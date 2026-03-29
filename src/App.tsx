@@ -406,6 +406,8 @@ export default function App() {
             onRetry={handleRetry}
             onSearch={(q) => handleSearch(q, article.currentMode)}
             related={related}
+            currentModel={currentModel}
+            onModelChange={setCurrentModel}
           />
         </main>
       </div>

@@ -14,11 +14,13 @@ import {
   Download,
   Maximize2,
   X,
+  ArrowRight,
 } from "lucide-react"
 import type { ImageResult } from "@/lib/wikipedia-images"
 import { fetchImages } from "@/lib/wikipedia-images"
 import type { InfoboxData } from "@/lib/article-helpers"
 import type { ArticleMode } from "@/lib/openrouter"
+import { AI_MODELS, type AIModelId } from "@/lib/openrouter"
 import { cn } from "@/lib/utils"
 import { SelectionToolbar } from "@/components/selection-toolbar"
 import { useI18n } from "@/lib/i18n"
@@ -36,6 +38,8 @@ interface ArticleStreamProps {
   onRetry: () => void
   onSearch?: (query: string) => void
   related?: string[]
+  currentModel?: AIModelId
+  onModelChange?: (modelId: AIModelId) => void
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -78,21 +82,7 @@ function InlineMarkdown({ text }: { text: string }) {
   )
 }
 
-function ArticleSkeleton() {
-  return (
-    <div className="flex animate-pulse flex-col gap-4">
-      <div className="h-5 w-2/3 rounded-md bg-muted" />
-      <div className="h-5 w-full rounded-md bg-muted" />
-      <div className="h-5 w-4/5 rounded-md bg-muted" />
-      <div className="h-5 w-full rounded-md bg-muted" />
-      <div className="h-5 w-3/4 rounded-md bg-muted" />
-      <div className="mt-4 h-4 w-1/3 rounded-md bg-muted" />
-      <div className="h-4 w-full rounded-md bg-muted" />
-      <div className="h-4 w-5/6 rounded-md bg-muted" />
-      <div className="h-4 w-full rounded-md bg-muted" />
-    </div>
-  )
-}
+
 
 function LoadingEntertainment() {
   const { t } = useI18n()
@@ -155,7 +145,6 @@ function LoadingEntertainment() {
         <span className="inline-block size-1.5 animate-pulse rounded-full bg-wiki-link" />
         <span>{messages[msgIndex]}</span>
       </div>
-      <ArticleSkeleton />
     </div>
   )
 }
@@ -564,6 +553,8 @@ export function ArticleStream({
   onRetry,
   onSearch,
   related,
+  currentModel,
+  onModelChange,
 }: ArticleStreamProps) {
   const { t, uiLocale } = useI18n()
   const [reasoningOpen, setReasoningOpen] = useState(true)
@@ -642,10 +633,7 @@ export function ArticleStream({
       <div>
         <h1
           id="top"
-          className={cn(
-            "font-serif text-3xl leading-tight font-bold tracking-tight md:text-4xl",
-            isStreaming && content.length === 0 && "streaming-cursor"
-          )}
+          className="font-serif text-3xl leading-tight font-bold tracking-tight md:text-4xl"
         >
           {displayTitle}
         </h1>
@@ -738,34 +726,158 @@ export function ArticleStream({
           {reasoningOpen && (
             <div className="max-h-56 overflow-y-auto border-t border-border/50 px-4 py-3 text-[0.8125rem] leading-relaxed text-muted-foreground">
               {reasoning}
-              {isStreaming && !content && <span className="streaming-cursor" />}
             </div>
           )}
         </div>
       )}
 
       {/* ── Error state ─────────────────────────────────────────────── */}
-      {error && (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-5 py-4">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
-            <div className="flex flex-col gap-2">
-              <p className="text-sm font-medium text-destructive">
+      {error && (() => {
+        const isRateLimitOrAuth =
+          error === t.errors.rateLimited ||
+          error === t.errors.unauthorized ||
+          error === t.errors.modelUnavailable
+
+        const otherModels = currentModel
+          ? AI_MODELS.filter((m) => m.id !== currentModel)
+          : []
+
+        const isRecoverable = isRateLimitOrAuth && otherModels.length > 0 && onModelChange
+        const isAllExhausted = isRateLimitOrAuth && otherModels.length === 0
+
+        return (
+          <div
+            className={cn(
+              "anim-fade-in overflow-hidden rounded-2xl border",
+              isRecoverable
+                ? "border-amber-400/30 bg-amber-50/60 dark:border-amber-500/20 dark:bg-amber-950/20"
+                : "border-destructive/30 bg-destructive/5"
+            )}
+          >
+            {/* Error header */}
+            <div className={cn(
+              "flex items-center gap-2.5 px-5 py-3.5",
+              isRecoverable
+                ? "border-b border-amber-400/20 bg-amber-100/40 dark:border-amber-500/10 dark:bg-amber-950/30"
+                : "border-b border-destructive/15 bg-destructive/5"
+            )}>
+              <AlertCircle className={cn(
+                "size-[18px] shrink-0",
+                isRecoverable
+                  ? "text-amber-600 dark:text-amber-400"
+                  : "text-destructive"
+              )} />
+              <p className={cn(
+                "text-sm font-semibold",
+                isRecoverable
+                  ? "text-amber-800 dark:text-amber-300"
+                  : "text-destructive"
+              )}>
                 {t.article.errorTitle}
               </p>
-              <p className="text-xs text-muted-foreground">{error}</p>
-              <button
-                type="button"
-                onClick={onRetry}
-                className="mt-1 flex w-fit items-center gap-1.5 rounded-lg border border-border/60 bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted"
-              >
-                <RefreshCw className="size-3" />
-                {t.article.errorRetry}
-              </button>
+            </div>
+
+            <div className="flex flex-col gap-4 px-5 py-4">
+              <p className="text-[0.8125rem] leading-relaxed text-muted-foreground">
+                {error}
+              </p>
+
+              {/* Recoverable: show alternative model cards */}
+              {isRecoverable && (
+                <div className="flex flex-col gap-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-foreground/50">
+                    {t.errors.tryOtherModel}
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {otherModels.map((model) => (
+                      <button
+                        key={model.id}
+                        type="button"
+                        onClick={() => {
+                          onModelChange(model.id)
+                          setTimeout(() => onRetry(), 50)
+                        }}
+                        className="group flex items-center gap-3 rounded-xl border border-border/60 bg-background px-4 py-3 text-left shadow-sm transition-all duration-200 hover:border-wiki-link/50 hover:shadow-md hover:ring-2 hover:ring-wiki-link/10"
+                      >
+                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/60 p-1.5 transition-colors group-hover:bg-wiki-link/10">
+                          {model.darkLogo ? (
+                            <>
+                              <img
+                                src={model.logo}
+                                alt=""
+                                className="size-5 object-contain dark:hidden"
+                              />
+                              <img
+                                src={model.darkLogo}
+                                alt=""
+                                className="hidden size-5 object-contain dark:block"
+                              />
+                            </>
+                          ) : (
+                            <img
+                              src={model.logo}
+                              alt=""
+                              className="size-5 object-contain"
+                            />
+                          )}
+                        </div>
+                        <div className="flex flex-1 flex-col gap-0.5">
+                          <span className="text-sm font-medium text-foreground transition-colors group-hover:text-wiki-link">
+                            {model.label}
+                          </span>
+                          {model.recommended && (
+                            <span className="text-[10px] font-medium text-wiki-link">
+                              {t.landing.recommended}
+                            </span>
+                          )}
+                        </div>
+                        <ArrowRight className="size-4 text-muted-foreground/40 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-wiki-link" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* All models exhausted */}
+              {isAllExhausted && (
+                <div className="flex flex-col items-center gap-3 rounded-xl border border-border/50 bg-muted/30 px-5 py-5 text-center">
+                  <div className="flex size-10 items-center justify-center rounded-full bg-muted">
+                    <RefreshCw className="size-4.5 text-muted-foreground" />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <p className="text-sm font-medium text-foreground/80">
+                      {t.errors.allExhausted}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {t.errors.allExhaustedHint}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onRetry}
+                    className="mt-1 flex items-center gap-1.5 rounded-lg border border-border/60 bg-background px-4 py-2 text-xs font-medium shadow-sm transition-all duration-150 hover:bg-muted hover:shadow-md"
+                  >
+                    <RefreshCw className="size-3" />
+                    {t.article.errorRetry}
+                  </button>
+                </div>
+              )}
+
+              {/* Generic error: simple retry */}
+              {!isRateLimitOrAuth && (
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  className="flex w-fit items-center gap-1.5 rounded-lg border border-border/60 bg-background px-3.5 py-2 text-xs font-medium shadow-sm transition-all duration-150 hover:bg-muted hover:shadow-md"
+                >
+                  <RefreshCw className="size-3" />
+                  {t.article.errorRetry}
+                </button>
+              )}
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* ── Loading entertainment ────────────────────────────────────── */}
       {isStreaming && !content && !error && <LoadingEntertainment />}
@@ -786,10 +898,7 @@ export function ArticleStream({
         </div>
       )}
 
-      {/* ── Trailing cursor ─────────────────────────────────────────── */}
-      {isStreaming && content && (
-        <span className="streaming-cursor inline-block w-fit" />
-      )}
+
 
       {/* ── Related articles ────────────────────────────────────────── */}
       {!isStreaming && related && related.length > 0 && (

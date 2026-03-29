@@ -116,12 +116,16 @@ const translations = {
     errors: {
       unauthorized: "Clave API inválida. Verifica tu VITE_OPENROUTER_API_KEY.",
       rateLimited:
-        "Demasiadas solicitudes. Espera un momento e intenta de nuevo.",
+        "Se han agotado los tokens disponibles para este modelo.",
       modelUnavailable:
-        "El modelo seleccionado no está disponible. Prueba con otro.",
+        "El modelo seleccionado no está disponible en este momento.",
       serverError: "Error del servidor. Intenta de nuevo en unos segundos.",
       networkError: "Error de conexión. Verifica tu Internet.",
       generic: "Algo salió mal. Intenta de nuevo.",
+      tryOtherModel: "Prueba con otra IA:",
+      retryWith: "Intentar con",
+      allExhausted: "Todos los modelos están temporalmente agotados",
+      allExhaustedHint: "Los modelos gratuitos tienen límites de uso. Espera unos minutos e intenta de nuevo.",
     },
     loading: {
       didYouKnow: "¿Sabías que...?",
@@ -264,12 +268,16 @@ const translations = {
     },
     errors: {
       unauthorized: "Invalid API key. Check your VITE_OPENROUTER_API_KEY.",
-      rateLimited: "Too many requests. Wait a moment and try again.",
+      rateLimited: "Available tokens for this model have been exhausted.",
       modelUnavailable:
-        "The selected model is unavailable. Try a different one.",
+        "The selected model is currently unavailable.",
       serverError: "Server error. Try again in a few seconds.",
       networkError: "Connection error. Check your Internet.",
       generic: "Something went wrong. Please try again.",
+      tryOtherModel: "Try with another AI:",
+      retryWith: "Retry with",
+      allExhausted: "All models are temporarily exhausted",
+      allExhaustedHint: "Free models have usage limits. Wait a few minutes and try again.",
     },
     loading: {
       didYouKnow: "Did you know...?",
