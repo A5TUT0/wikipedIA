@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect, useCallback } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
+import { useI18n } from "@/lib/i18n"
 
 interface TocItem {
   id: string
@@ -35,6 +36,7 @@ interface TableOfContentsProps {
 }
 
 export function TableOfContents({ items, className }: TableOfContentsProps) {
+  const { t } = useI18n()
   const [activeId, setActiveId] = useState<string>("")
 
   // Track active section via IntersectionObserver
@@ -84,7 +86,7 @@ export function TableOfContents({ items, className }: TableOfContentsProps) {
   return (
     <nav className={cn("w-full", className)}>
       <p className="mb-3 text-[0.6875rem] font-semibold tracking-widest text-muted-foreground/70 uppercase">
-        Contenidos
+        {t.toc.title}
       </p>
       <ScrollArea className="h-[calc(100vh-10rem)]">
         <ol className="flex flex-col gap-px text-sm">

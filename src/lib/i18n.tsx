@@ -147,6 +147,9 @@ const translations = {
         "El universo observable tiene unos 93 mil millones de años luz de diámetro.",
       ],
     },
+    toc: {
+      title: "Contenidos",
+    },
     app: {
       navigation: "Navegación",
       backToTop: "Volver arriba",
@@ -298,6 +301,9 @@ const translations = {
         "The DNA of all living humans is 99.9% identical to each other.",
         "The observable universe is about 93 billion light-years in diameter.",
       ],
+    },
+    toc: {
+      title: "Contents",
     },
     app: {
       navigation: "Navigation",

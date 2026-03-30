@@ -4,6 +4,7 @@ import { useState, type FormEvent, useRef, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { AI_MODELS, type ArticleMode, type AIModelId } from "@/lib/openrouter"
 import { useI18n } from "@/lib/i18n"
+import { useSearchSuggestions, SearchSuggestionsDropdown } from "@/components/search-suggestions"
 
 interface LandingProps {
   onSearch: (
@@ -36,12 +37,14 @@ export function Landing({
   searchHistory,
   onRemoveHistory,
 }: LandingProps) {
-  const { t } = useI18n()
+  const { t, uiLocale } = useI18n()
   const [query, setQuery] = useState("")
   const [focused, setFocused] = useState(false)
   const [modelOpen, setModelOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const modelRef = useRef<HTMLDivElement>(null)
+  
+  const { suggestions } = useSearchSuggestions(query, uiLocale)
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -120,7 +123,7 @@ export function Landing({
         {/* ── Search ────────────────────────────────────────────────── */}
         <form
           onSubmit={handleSubmit}
-          className="anim-fade-in-up anim-delay-2 w-full"
+          className="anim-fade-in-up anim-delay-2 relative z-50 w-full"
         >
           <div
             className={cn(
@@ -139,13 +142,27 @@ export function Landing({
             <input
               ref={inputRef}
               type="search"
+              autoComplete="off"
               placeholder={t.landing.searchPlaceholder}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onFocus={() => setFocused(true)}
-              onBlur={() => setFocused(false)}
+              onBlur={() => setTimeout(() => setFocused(false), 200)}
               className="flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground/70 md:text-[1.0625rem]"
             />
+            {query.length > 0 && (
+              <button
+                type="button"
+                className="flex items-center justify-center rounded-full p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                onClick={() => {
+                  setQuery("")
+                  inputRef.current?.focus()
+                }}
+                aria-label="Limpiar búsqueda"
+              >
+                <X className="size-4" strokeWidth={2.5} />
+              </button>
+            )}
 
             {/* Model selector – minimal */}
             <div className="relative" ref={modelRef}>
@@ -243,6 +260,19 @@ export function Landing({
               {t.landing.searchButton}
             </Button>
           </div>
+
+          {/* Search Suggestions Dropdown */}
+          {focused && suggestions.length > 0 && (
+            <div className="relative">
+              <SearchSuggestionsDropdown
+                suggestions={suggestions}
+                onSelect={(title) => {
+                  setQuery(title)
+                  onSearch(title, mode)
+                }}
+              />
+            </div>
+          )}
         </form>
 
         {/* ── Recent searches ─────────────────────────────────────────── */}

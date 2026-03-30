@@ -17,7 +17,7 @@ import { Footer } from "@/components/footer"
 import { ToastContainer } from "@/components/toast"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import {
-  streamArticle,
+  streamArticleWithFallback,
   type ArticleMode,
   type AIModelId,
 } from "@/lib/openrouter"
@@ -277,7 +277,7 @@ export default function App() {
         ERROR_GENERIC: t.errors.generic,
       }
 
-      await streamArticle(
+      await streamArticleWithFallback(
         searchQuery,
         selectedMode,
         {
@@ -294,6 +294,9 @@ export default function App() {
           },
           onError(err) {
             dispatch({ type: "ERROR", error: errorMap[err] ?? err })
+          },
+          onModelSwitch(modelId) {
+            setCurrentModel(modelId)
           },
         },
         controller.signal,

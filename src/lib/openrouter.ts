@@ -263,3 +263,78 @@ export async function streamArticle(
     }
   }
 }
+
+/** Error codes that indicate we should try the next model */
+const FALLBACK_ERRORS = new Set([
+  "ERROR_RATE_LIMITED",
+  "ERROR_UNAUTHORIZED",
+  "ERROR_MODEL_UNAVAILABLE",
+])
+
+export interface FallbackCallbacks extends StreamCallbacks {
+  /** Called when switching to a different model after a failure */
+  onModelSwitch: (modelId: AIModelId) => void
+}
+
+/**
+ * Streams an article with automatic model fallback.
+ * Tries the preferred model first, then cycles through remaining models
+ * if the error is recoverable (rate limit, auth, model unavailable).
+ */
+export async function streamArticleWithFallback(
+  query: string,
+  mode: ArticleMode,
+  callbacks: FallbackCallbacks,
+  signal?: AbortSignal,
+  langName?: string,
+  context?: string,
+  preferredModelId?: AIModelId
+) {
+  // Build ordered model list: preferred first, then the rest
+  const preferred = preferredModelId ?? DEFAULT_MODEL
+  const modelOrder: AIModelId[] = [
+    preferred,
+    ...AI_MODELS.map((m) => m.id).filter((id) => id !== preferred),
+  ]
+
+  for (let i = 0; i < modelOrder.length; i++) {
+    const modelId = modelOrder[i]
+
+    // If signal already aborted, stop
+    if (signal?.aborted) return
+
+    // Notify model switch (skip for the first/preferred model)
+    if (i > 0) {
+      callbacks.onModelSwitch(modelId)
+    }
+
+    // Try this model — wrap callbacks to intercept errors
+    let gotFallbackError = false
+
+    await streamArticle(
+      query,
+      mode,
+      {
+        onReasoning: callbacks.onReasoning,
+        onContent: callbacks.onContent,
+        onDone: callbacks.onDone,
+        onError(err) {
+          if (FALLBACK_ERRORS.has(err) && i < modelOrder.length - 1) {
+            // Recoverable error and more models to try — flag for fallback
+            gotFallbackError = true
+          } else {
+            // Final model or non-recoverable error — propagate
+            callbacks.onError(err)
+          }
+        },
+      },
+      signal,
+      langName,
+      context,
+      modelId
+    )
+
+    // If we got content or finished without fallback error, we're done
+    if (!gotFallbackError) return
+  }
+}

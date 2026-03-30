@@ -231,11 +231,14 @@ function ArticleImage({
       className="group relative mb-5 cursor-zoom-in overflow-hidden rounded-xl shadow-sm transition-shadow duration-200 hover:shadow-lg"
       onClick={onClick}
     >
-      <div className="overflow-hidden" style={{ aspectRatio: "16 / 7" }}>
+      <div
+        className="overflow-hidden"
+        style={{ aspectRatio: "var(--img-ratio, 16/9)" }}
+      >
         <img
           src={img.original}
           alt={img.title}
-          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+          className="h-full w-full object-cover transition-transform duration-500 max-sm:[--img-ratio:16/9] sm:[--img-ratio:16/7] group-hover:scale-[1.02]"
           loading="lazy"
           onError={(e) => {
             const target = e.currentTarget
@@ -267,10 +270,12 @@ function ArticleImage({
 
 function LazyImage({
   keyword,
+  articleTitle,
   onImageClick,
   expandLabel,
 }: {
   keyword: string
+  articleTitle: string
   onImageClick: (img: ImageResult) => void
   expandLabel: string
 }) {
@@ -281,19 +286,19 @@ function LazyImage({
   useEffect(() => {
     if (fetched.current) return
     fetched.current = true
-    fetchImages(keyword, 1).then((results) => {
+    fetchImages(`${articleTitle} ${keyword}`, 1).then((results) => {
       if (results.length > 0) setImg(results[0])
       setLoading(false)
     })
-  }, [keyword])
+  }, [keyword, articleTitle])
 
   if (loading) {
     return (
       <div
-        className="mb-5 overflow-hidden rounded-xl"
-        style={{ aspectRatio: "16 / 7" }}
+        className="mb-5 overflow-hidden rounded-xl bg-muted"
+        style={{ aspectRatio: "var(--img-ratio, 16/9)" }}
       >
-        <div className="h-full w-full animate-pulse bg-muted" />
+        <div className="h-full w-full animate-pulse max-sm:[--img-ratio:16/9] sm:[--img-ratio:16/7]" />
       </div>
     )
   }
@@ -313,9 +318,11 @@ function LazyImage({
 
 function MarkdownArticle({
   content,
+  articleTitle,
   onImageClick,
 }: {
   content: string
+  articleTitle: string
   onImageClick: (img: ImageResult) => void
 }) {
   const { t } = useI18n()
@@ -397,6 +404,7 @@ function MarkdownArticle({
             <LazyImage
               key={`img-${block.uid}`}
               keyword={block.text}
+              articleTitle={articleTitle}
               onImageClick={onImageClick}
               expandLabel={t.article.expandImage}
             />
@@ -410,7 +418,7 @@ function MarkdownArticle({
             return (
               <div key={block.uid} className="mt-4">
                 <div id={block.id} className="scroll-mt-20">
-                  <h2 className="mb-2 border-b border-border/50 pb-1.5 font-serif text-[1.4rem] font-semibold text-foreground">
+                  <h2 className="anim-fade-in mb-2 border-b border-border/50 pb-1.5 font-serif text-[1.4rem] font-semibold text-foreground">
                     <InlineMarkdown text={block.text} />
                   </h2>
                 </div>
@@ -423,7 +431,7 @@ function MarkdownArticle({
               <h3
                 key={block.uid}
                 id={block.id}
-                className="mt-2 scroll-mt-20 font-serif text-[1.15rem] font-semibold text-foreground/90"
+                className="anim-fade-in mt-2 scroll-mt-20 font-serif text-[1.15rem] font-semibold text-foreground/90"
               >
                 <InlineMarkdown text={block.text} />
               </h3>
@@ -435,7 +443,7 @@ function MarkdownArticle({
           return (
             <li
               key={block.uid}
-              className="ml-5 list-disc font-serif text-[0.9375rem] leading-[1.8] text-foreground/90"
+              className="anim-fade-in ml-5 list-disc font-serif text-[0.9375rem] leading-[1.8] text-foreground/90"
             >
               <InlineMarkdown text={block.text} />
             </li>
@@ -445,7 +453,7 @@ function MarkdownArticle({
         return (
           <p
             key={block.uid}
-            className="font-serif text-[0.9375rem] leading-[1.8] text-foreground/90"
+            className="anim-fade-in font-serif text-[0.9375rem] leading-[1.8] text-foreground/90"
           >
             <InlineMarkdown text={block.text} />
           </p>
@@ -893,7 +901,11 @@ export function ArticleStream({
             />
           )}
           {content && (
-            <MarkdownArticle content={content} onImageClick={setLightboxImg} />
+            <MarkdownArticle
+              content={content}
+              articleTitle={title}
+              onImageClick={setLightboxImg}
+            />
           )}
         </div>
       )}

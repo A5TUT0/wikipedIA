@@ -1,4 +1,4 @@
-import { Search, Moon, Sun, Menu, ArrowLeft, Globe } from "lucide-react"
+import { Search, Moon, Sun, Menu, ArrowLeft, Globe, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/components/theme-provider"
 import {
@@ -16,6 +16,7 @@ import {
   type UiLocale,
   type AiLang,
 } from "@/lib/i18n"
+import { useSearchSuggestions, SearchSuggestionsDropdown } from "@/components/search-suggestions"
 
 interface HeaderProps {
   mode: "landing" | "article"
@@ -126,6 +127,9 @@ export function Header({
   const [settingsOpen, setSettingsOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const settingsBtnRef = useRef<HTMLDivElement>(null)
+  
+  const { uiLocale } = useI18n()
+  const { suggestions } = useSearchSuggestions(query, uiLocale)
 
   // Sync query with prop during render (avoids useEffect for derived state)
   const [prevQuery, setPrevQuery] = useState<string | undefined>(undefined)
@@ -174,13 +178,13 @@ export function Header({
             <ArrowLeft className="size-3.5 text-muted-foreground transition-transform group-hover:-translate-x-0.5" />
           )}
           <span className="font-serif text-xl leading-none font-bold tracking-tight">
-            Wikiped<span className="text-wiki-link">IA</span>
+            W<span className="hidden sm:inline">ikiped</span><span className="text-wiki-link">IA</span>
           </span>
         </button>
 
         {/* Search bar (article mode only) */}
         {mode === "article" && (
-          <form onSubmit={handleSubmit} className="mx-auto w-full max-w-lg">
+          <form onSubmit={handleSubmit} className="relative z-50 mx-auto w-full max-w-lg">
             <div
               className={cn(
                 "flex items-center gap-2 rounded-lg border bg-background px-3 py-1.5 transition-all duration-200",
@@ -198,17 +202,44 @@ export function Header({
               <input
                 ref={inputRef}
                 type="search"
+                autoComplete="off"
                 placeholder={t.header.searchPlaceholder}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onFocus={() => setFocused(true)}
-                onBlur={() => setFocused(false)}
-                className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
+                onBlur={() => setTimeout(() => setFocused(false), 200)}
+                className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60 w-full min-w-0"
               />
-              <kbd className="hidden items-center gap-0.5 rounded border border-border/50 px-1.5 py-0.5 text-[10px] text-muted-foreground/50 sm:flex">
+              {query.length > 0 && (
+                <button
+                  type="button"
+                  className="flex items-center justify-center rounded-full p-0.5 text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+                  onClick={() => {
+                    setQuery("")
+                    inputRef.current?.focus()
+                  }}
+                  aria-label="Limpiar búsqueda"
+                >
+                  <X className="size-3.5" strokeWidth={2.5} />
+                </button>
+              )}
+              <kbd className="hidden shrink-0 items-center gap-0.5 rounded border border-border/50 px-1.5 py-0.5 text-[10px] text-muted-foreground/50 sm:flex">
                 <span className="text-[11px]">⌘</span>K
               </kbd>
             </div>
+            
+            {/* Search Suggestions Dropdown */}
+            {focused && suggestions.length > 0 && (
+              <div className="relative">
+                <SearchSuggestionsDropdown
+                  suggestions={suggestions}
+                  onSelect={(title) => {
+                    setQuery(title)
+                    if (onSearch) onSearch(title)
+                  }}
+                />
+              </div>
+            )}
           </form>
         )}
 
