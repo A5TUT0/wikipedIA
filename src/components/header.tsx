@@ -9,14 +9,15 @@ import {
   type RefObject,
 } from "react"
 import { cn } from "@/lib/utils"
+import { useI18n } from "@/lib/i18n"
 import {
-  useI18n,
   UI_LOCALES,
   AI_LANG_CODES,
   type UiLocale,
   type AiLang,
-} from "@/lib/i18n"
-import { useSearchSuggestions, SearchSuggestionsDropdown } from "@/components/search-suggestions"
+} from "@/lib/i18n-constants"
+import { SearchSuggestionsDropdown } from "@/components/search-suggestions"
+import { useSearchSuggestions } from "@/hooks/use-search-suggestions"
 
 interface HeaderProps {
   mode: "landing" | "article"

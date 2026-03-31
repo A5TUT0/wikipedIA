@@ -1,20 +1,7 @@
 import { useEffect, useState } from "react"
 import { Check } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-interface ToastItem {
-  id: number
-  message: string
-}
-
-let toastId = 0
-let listeners: Array<(t: ToastItem) => void> = []
-
-/** Fire a global toast from anywhere (no hook needed) */
-export function toast(message: string) {
-  const item: ToastItem = { id: ++toastId, message }
-  listeners.forEach((fn) => fn(item))
-}
+import { subscribeToToasts, type ToastItem } from "@/lib/toast-service"
 
 export function ToastContainer() {
   const [toasts, setToasts] = useState<ToastItem[]>([])
@@ -26,10 +13,7 @@ export function ToastContainer() {
         setToasts((prev) => prev.filter((x) => x.id !== t.id))
       }, 2200)
     }
-    listeners.push(handler)
-    return () => {
-      listeners = listeners.filter((fn) => fn !== handler)
-    }
+    return subscribeToToasts(handler)
   }, [])
 
   return (

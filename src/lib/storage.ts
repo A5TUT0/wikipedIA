@@ -83,3 +83,34 @@ export function cacheArticle(
     // Storage full or unavailable
   }
 }
+
+// ── Daily Limit helpers ───────────────────────────────────────────────────────
+const DAILY_LIMIT_KEY = "wikia-daily-limit"
+const MAX_REQUESTS_PER_DAY = 15 // Limit of requests per day
+
+export function checkDailyLimit(): boolean {
+  try {
+    const data = JSON.parse(localStorage.getItem(DAILY_LIMIT_KEY) ?? '{"count": 0, "date": ""}')
+    const today = new Date().toISOString().split("T")[0]
+    if (data.date !== today) {
+      return true // New day, allow
+    }
+    return data.count < MAX_REQUESTS_PER_DAY
+  } catch {
+    return true
+  }
+}
+
+export function incrementDailyLimit() {
+  try {
+    const data = JSON.parse(localStorage.getItem(DAILY_LIMIT_KEY) ?? '{"count": 0, "date": ""}')
+    const today = new Date().toISOString().split("T")[0]
+    if (data.date !== today) {
+      localStorage.setItem(DAILY_LIMIT_KEY, JSON.stringify({ count: 1, date: today }))
+    } else {
+      localStorage.setItem(DAILY_LIMIT_KEY, JSON.stringify({ count: data.count + 1, date: today }))
+    }
+  } catch {
+    // ignore
+  }
+}

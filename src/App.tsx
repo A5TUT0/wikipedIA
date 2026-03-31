@@ -7,10 +7,8 @@ import {
   useState,
 } from "react"
 import { Header } from "@/components/header"
-import {
-  TableOfContents,
-  extractToc,
-} from "@/components/table-of-contents-dynamic"
+import { TableOfContents } from "@/components/table-of-contents-dynamic"
+import { extractToc } from "@/lib/toc-utils"
 import { ArticleStream } from "@/components/article-stream"
 import { Landing } from "@/components/landing"
 import { Footer } from "@/components/footer"
@@ -22,7 +20,8 @@ import {
   type AIModelId,
 } from "@/lib/openrouter"
 import { fetchImages, type ImageResult } from "@/lib/wikipedia-images"
-import { useI18n, AI_LANG_NAMES } from "@/lib/i18n"
+import { useI18n } from "@/lib/i18n"
+import { AI_LANG_NAMES } from "@/lib/i18n-constants"
 import { ArrowUp } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { extractInfobox, extractRelated } from "@/lib/article-helpers"
@@ -32,6 +31,8 @@ import {
   removeFromHistory,
   getCachedArticle,
   cacheArticle,
+  checkDailyLimit,
+  incrementDailyLimit,
 } from "@/lib/storage"
 
 type AppView = "landing" | "article"
@@ -40,7 +41,6 @@ interface ArticleState {
   view: AppView
   query: string
   displayTitle: string
-  reasoning: string
   content: string
   images: ImageResult[]
   isStreaming: boolean
@@ -58,7 +58,6 @@ type ArticleAction =
       mode: ArticleMode
       history: string[]
     }
-  | { type: "APPEND_REASONING"; chunk: string }
   | { type: "SET_CONTENT"; content: string }
   | { type: "SET_IMAGES"; images: ImageResult[] }
   | { type: "DONE" }
@@ -75,7 +74,6 @@ const initialArticleState: ArticleState = {
   view: "landing",
   query: "",
   displayTitle: "",
-  reasoning: "",
   content: "",
   images: [],
   isStreaming: false,
@@ -95,7 +93,6 @@ function articleReducer(
         ...state,
         query: action.query,
         displayTitle: action.displayTitle,
-        reasoning: "",
         content: "",
         images: [],
         error: null,
@@ -104,8 +101,6 @@ function articleReducer(
         transitioning: true,
         searchHistory: action.history,
       }
-    case "APPEND_REASONING":
-      return { ...state, reasoning: state.reasoning + action.chunk }
     case "SET_CONTENT":
       return { ...state, content: action.content }
     case "SET_IMAGES":
@@ -137,30 +132,55 @@ function articleReducer(
 }
 
 function useScrollProgress(isActive: boolean) {
-  const [readingProgress, setReadingProgress] = useState(0)
   const [showBackToTop, setShowBackToTop] = useState(false)
+  const progressBarRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!isActive) return
-    const handleScroll = () => {
+
+    let rafId: number
+
+    const updateProgress = () => {
       const scrollTop = window.scrollY
       const docHeight =
         document.documentElement.scrollHeight - window.innerHeight
-      setReadingProgress(
-        docHeight > 0 ? Math.min(100, (scrollTop / docHeight) * 100) : 0
-      )
+      const progress = docHeight > 0 ? Math.min(1, Math.max(0, scrollTop / docHeight)) : 0
+      
+      if (progressBarRef.current) {
+        progressBarRef.current.style.transform = `scaleX(${progress})`
+      }
+      
       setShowBackToTop(scrollTop > 400)
     }
-    window.addEventListener("scroll", handleScroll, { passive: true })
-    return () => window.removeEventListener("scroll", handleScroll)
+
+    const onScroll = () => {
+      cancelAnimationFrame(rafId)
+      rafId = requestAnimationFrame(updateProgress)
+    }
+
+    // Update on scroll and resize
+    window.addEventListener("scroll", onScroll, { passive: true })
+    const observer = new ResizeObserver(onScroll)
+    observer.observe(document.documentElement)
+
+    // Initial run
+    updateProgress()
+
+    return () => {
+      window.removeEventListener("scroll", onScroll)
+      observer.disconnect()
+      cancelAnimationFrame(rafId)
+    }
   }, [isActive])
 
   const reset = useCallback(() => {
-    setReadingProgress(0)
+    if (progressBarRef.current) {
+      progressBarRef.current.style.transform = "scaleX(0)"
+    }
     setShowBackToTop(false)
   }, [])
 
-  return { readingProgress, showBackToTop, resetScroll: reset }
+  return { progressBarRef, showBackToTop, resetScroll: reset }
 }
 
 export default function App() {
@@ -172,7 +192,7 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // Scroll state for reading progress + back-to-top
-  const { readingProgress, showBackToTop, resetScroll } = useScrollProgress(
+  const { progressBarRef, showBackToTop, resetScroll } = useScrollProgress(
     article.view === "article"
   )
 
@@ -277,13 +297,19 @@ export default function App() {
         ERROR_GENERIC: t.errors.generic,
       }
 
+      if (!checkDailyLimit()) {
+        dispatch({
+          type: "ERROR",
+          error: "Has alcanzado el límite diario de búsquedas. Por favor, vuelve mañana.",
+        })
+        return
+      }
+      incrementDailyLimit()
+
       await streamArticleWithFallback(
         searchQuery,
         selectedMode,
         {
-          onReasoning(chunk) {
-            dispatch({ type: "APPEND_REASONING", chunk })
-          },
           onContent(chunk) {
             fullContent += chunk
             dispatch({ type: "SET_CONTENT", content: fullContent })
@@ -324,10 +350,6 @@ export default function App() {
     dispatch({ type: "SET_HISTORY", history: getSearchHistory() })
   }, [])
 
-  const handleRetry = useCallback(() => {
-    handleSearch(article.query, article.currentMode)
-  }, [handleSearch, article.query, article.currentMode])
-
   // ── Landing view ─────────────────────────────────────────────────────
   if (article.view === "landing") {
     return (
@@ -363,8 +385,9 @@ export default function App() {
     >
       {/* Reading progress bar */}
       <div
-        className="fixed top-0 left-0 z-50 h-[2px] bg-wiki-link transition-all duration-100"
-        style={{ width: `${readingProgress}%` }}
+        ref={progressBarRef}
+        className="fixed top-0 left-0 z-[60] h-[3px] w-full origin-left bg-wiki-link will-change-transform"
+        style={{ transform: "scaleX(0)" }}
       />
 
       <Header
@@ -400,14 +423,13 @@ export default function App() {
           <ArticleStream
             title={article.displayTitle}
             mode={article.currentMode}
-            reasoning={article.reasoning}
             content={cleanContent}
             isStreaming={article.isStreaming}
             images={article.images}
             infobox={infobox}
             error={article.error}
-            onRetry={handleRetry}
-            onSearch={(q) => handleSearch(q, article.currentMode)}
+            onRetry={() => handleSearch(article.query, article.currentMode)}
+            onSearch={handleSearch}
             related={related}
             currentModel={currentModel}
             onModelChange={setCurrentModel}

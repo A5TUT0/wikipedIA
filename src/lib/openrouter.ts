@@ -26,6 +26,27 @@ export const AI_MODELS = [
       "https://www.edigitalagency.com.au/wp-content/uploads/new-ChatGPT-icon-white-png-large-size.png",
     recommended: true,
   },
+  {
+    id: "meta-llama/llama-3.2-3b-instruct:free",
+    label: "Llama 3.2",
+    logo: "https://cdn.jsdelivr.net/gh/lobehub/lobe-icons/packages/static-png/dark/meta-color.png",
+    darkLogo: undefined,
+    recommended: true,
+  },
+  {
+    id: "stepfun/step-3.5-flash:free",
+    label: "StepFun 3.5",
+    logo: "https://cdn.jsdelivr.net/gh/lobehub/lobe-icons/packages/static-png/dark/stepfun-color.png",
+    darkLogo: undefined,
+    recommended: false,
+  },
+  {
+    id: "arcee-ai/trinity-large-preview:free",
+    label: "Trinity",
+    logo: "https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/dark/arcee-color.png",
+    darkLogo: undefined,
+    recommended: false,
+  },
 ] as const
 
 export type AIModelId = (typeof AI_MODELS)[number]["id"]
@@ -142,7 +163,6 @@ ${SAFETY_RULE}`,
 }
 
 export interface StreamCallbacks {
-  onReasoning: (chunk: string) => void
   onContent: (chunk: string) => void
   onDone: () => void
   onError: (error: string) => void
@@ -191,7 +211,6 @@ export async function streamArticle(
             : query,
         },
       ],
-      reasoning: { enabled: true },
       stream: true,
     }),
     signal,
@@ -245,9 +264,6 @@ export async function streamArticle(
           const delta = parsed.choices?.[0]?.delta
           if (!delta) continue
 
-          if (delta.reasoning) {
-            callbacks.onReasoning(delta.reasoning)
-          }
           if (delta.content) {
             callbacks.onContent(delta.content)
           }
@@ -290,11 +306,22 @@ export async function streamArticleWithFallback(
   context?: string,
   preferredModelId?: AIModelId
 ) {
-  // Build ordered model list: preferred first, then the rest
+  // Build ordered model list: preferred first, then the rest by priority
   const preferred = preferredModelId ?? DEFAULT_MODEL
+
+  // Custom priority list. Fallback will follow this order.
+  const priorityOrder: AIModelId[] = [
+    "openai/gpt-oss-120b:free",
+    "meta-llama/llama-3.2-3b-instruct:free",
+    "stepfun/step-3.5-flash:free",
+    "z-ai/glm-4.5-air:free",
+    "arcee-ai/trinity-large-preview:free",
+    "nvidia/nemotron-3-super-120b-a12b:free",
+  ]
+
   const modelOrder: AIModelId[] = [
     preferred,
-    ...AI_MODELS.map((m) => m.id).filter((id) => id !== preferred),
+    ...priorityOrder.filter((id) => id !== preferred),
   ]
 
   for (let i = 0; i < modelOrder.length; i++) {
@@ -315,7 +342,6 @@ export async function streamArticleWithFallback(
       query,
       mode,
       {
-        onReasoning: callbacks.onReasoning,
         onContent: callbacks.onContent,
         onDone: callbacks.onDone,
         onError(err) {

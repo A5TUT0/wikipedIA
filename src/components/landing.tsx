@@ -4,7 +4,8 @@ import { useState, type FormEvent, useRef, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { AI_MODELS, type ArticleMode, type AIModelId } from "@/lib/openrouter"
 import { useI18n } from "@/lib/i18n"
-import { useSearchSuggestions, SearchSuggestionsDropdown } from "@/components/search-suggestions"
+import { SearchSuggestionsDropdown } from "@/components/search-suggestions"
+import { useSearchSuggestions } from "@/hooks/use-search-suggestions"
 
 interface LandingProps {
   onSearch: (

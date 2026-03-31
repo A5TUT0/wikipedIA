@@ -1,5 +1,3 @@
-import { createContext, useContext, useState, type ReactNode } from "react"
-
 // ── Locale types ──────────────────────────────────────────────────────────────
 export const UI_LOCALES = ["es", "en"] as const
 export type UiLocale = (typeof UI_LOCALES)[number]
@@ -34,7 +32,7 @@ export const AI_LANG_NAMES: Record<Exclude<AiLang, "auto">, string> = {
 }
 
 // ── Translations ──────────────────────────────────────────────────────────────
-const translations = {
+export const translations = {
   es: {
     landing: {
       subtitle: "La enciclopedia libre generada por inteligencia artificial",
@@ -100,29 +98,22 @@ const translations = {
       copy: "Copiar",
       copied: "Copiado",
       share: "Compartir",
-      shared: "¡Enlace copiado!",
-      download: "Descargar",
-      expandImage: "Ver imagen",
-      relatedTitle: "También te puede interesar",
-      shareOnX: "Compartir en X",
-      shareOnWhatsApp: "Compartir en WhatsApp",
-      copyLink: "Copiar enlace",
-    },
-    toast: {
-      copied: "¡Copiado al portapapeles!",
-      linkCopied: "¡Enlace copiado!",
-      downloaded: "¡Artículo descargado!",
+      shared: "Compartido",
+      download: "Descargar Markdown",
+      downloaded: "Descargado",
+      lastUpdated: "Actualizado",
+      thinking: "Razonando",
+      source: "Fuente",
+      related: "Artículos relacionados",
+      suggestMore: "Sugerir más temas",
     },
     errors: {
-      unauthorized: "Clave API inválida. Verifica tu VITE_OPENROUTER_API_KEY.",
-      rateLimited:
-        "Se han agotado los tokens disponibles para este modelo.",
-      modelUnavailable:
-        "El modelo seleccionado no está disponible en este momento.",
-      serverError: "Error del servidor. Intenta de nuevo en unos segundos.",
-      networkError: "Error de conexión. Verifica tu Internet.",
-      generic: "Algo salió mal. Intenta de nuevo.",
-      tryOtherModel: "Prueba con otra IA:",
+      unauthorized: "Clave de API no válida o expirada",
+      rateLimited: "Límite de peticiones alcanzado",
+      modelUnavailable: "El modelo de IA no está disponible",
+      serverError: "Error en el servidor de OpenRouter",
+      generic: "Ocurrió un error inesperado",
+      tryOtherModel: "Intentar con otra IA:",
       retryWith: "Intentar con",
       allExhausted: "Todos los modelos están temporalmente agotados",
       allExhaustedHint: "Los modelos gratuitos tienen límites de uso. Espera unos minutos e intenta de nuevo.",
@@ -145,6 +136,18 @@ const translations = {
         "Los árboles se comunican entre sí a través de redes de hongos subterráneos llamadas 'red de madera'.",
         "El ADN de todos los humanos vivos es 99,9% idéntico entre sí.",
         "El universo observable tiene unos 93 mil millones de años luz de diámetro.",
+        "Las abejas pueden reconocer rostros humanos y comunicarse mediante una 'danza' de movimientos.",
+        "El monte Everest crece unos 4 milímetros cada año debido al movimiento de las placas tectónicas.",
+        "Existen más de 200 millones de insectos por cada ser humano en el planeta Tierra.",
+        "El corazón del colibrí late hasta 1,200 veces por minuto durante el vuelo.",
+        "Los tiburones han existido en la Tierra por más de 400 millones de años, incluso antes que los árboles.",
+        "La Antártida es técnicamente el desierto más grande del mundo debido a sus bajas precipitaciones.",
+        "Un solo rayo contiene suficiente energía para tostar 100,000 rebanadas de pan.",
+        "Las medusas no tienen corazón, cerebro, pulmones ni branquias; absorben oxígeno a través de su piel.",
+        "El nombre oficial de Bangkok tiene 168 letras, siendo el nombre de lugar más largo del mundo.",
+        "El ojo del avestruz es más grande que su cerebro.",
+        "Los wombats producen heces en forma de cubo para evitar que rueden y marcar su territorio.",
+        "En Saturno y Júpiter llueven diamantes debido a la presión atmosférica extrema.",
       ],
     },
     toc: {
@@ -154,90 +157,53 @@ const translations = {
       navigation: "Navegación",
       backToTop: "Volver arriba",
     },
-    toolbar: {
-      copy: "Copiar",
-      copied: "Copiado",
-      search: "Buscar",
-      removeHighlight: "Quitar",
-      colors: {
-        yellow: "Amarillo",
-        green: "Verde",
-        blue: "Azul",
-        pink: "Rosa",
-        orange: "Naranja",
-      },
-    },
     footer: {
-      disclaimerPre: "El contenido de",
-      disclaimerPost:
-        "es generado por IA y puede contener inexactitudes. Verifica siempre con fuentes confiables.",
-      hosting: "Hosting por",
+      tagline: "El conocimiento del mundo, resumido por IA",
+      github: "Código fuente en GitHub",
+      privacy: "Privacidad",
+      terms: "Términos",
     },
-    settings: {
-      uiLanguage: "Idioma de la interfaz",
-      aiLanguage: "Idioma de respuesta de la IA",
-      aiLangs: {
-        auto: "Automático",
-        es: "Español",
-        en: "Inglés",
-        fr: "Francés",
-        pt: "Portugués",
-        de: "Alemán",
-        it: "Italiano",
-        ja: "Japonés",
-        zh: "Chino",
-        ar: "Árabe",
-        ru: "Ruso",
-      },
+    toast: {
+      copied: "Copiado al portapapeles",
+      linkCopied: "Enlace copiado al portapapeles",
+      downloaded: "Artículo descargado",
     },
   },
   en: {
     landing: {
       subtitle: "The free encyclopedia generated by artificial intelligence",
       modes: {
-        rapido: { label: "Quick", desc: "Brief and direct" },
-        medio: { label: "Medium", desc: "Good amount of detail" },
+        rapido: { label: "Fast", desc: "Brief and direct" },
+        medio: { label: "Medium", desc: "With good detail" },
         extendido: { label: "Extended", desc: "Full Wikipedia style" },
       },
       searchPlaceholder: "Search any topic...",
       searchButton: "Search",
-      recents: "Recent",
+      recents: "Recents",
       recommended: "Recommended",
       suggestions: "Suggestions",
       suggestionItems: [
-        {
-          label: "Midudev",
-          query: "Midudev",
-          context:
-            "Miguel Ángel Durán García, known as Midudev, is a Spanish programmer and content creator specializing in web development. He is known for educational content about JavaScript, React and frontend technologies.",
-        },
-        {
-          label: "CubePath",
-          query: "CubePath",
-          context:
-            "CubePath is a next-generation server infrastructure and hosting company. They offer dedicated servers with instant deploy, Cloud VPS, Cloud Gateway (connectivity to AWS, Google Cloud, Azure), and enterprise-grade DDoS protection. They guarantee 99.99% uptime, 24/7 expert support, and an AnyCast low-latency network. They own and operate servers in tier-3 datacenters across 5 strategic locations: Barcelona, Amsterdam, Houston, Miami, and Virginia. They provide a control panel at my.cubepath.com and a REST API along with CubeCLI for infrastructure automation. Technology partners include AMD, Samsung, Arista, Nutanix, and VMware. They also have a marketplace and their newest product is OpenClaw. Website: https://cubepath.com/",
-        },
         { label: "Artificial Intelligence", query: "Artificial Intelligence" },
         {
           label: "Vite",
           query: "Vite",
           context:
-            "Vite is a frontend web build tool created by Evan You, the creator of Vue.js.",
+            "Vite is a build tool for modern web projects, created by Evan You.",
         },
         {
           label: "React",
           query: "React",
           context:
-            "React is a JavaScript library for building user interfaces, developed by Meta (Facebook).",
+            "React is a JavaScript library for building user interfaces, developed by Meta.",
         },
         {
           label: "TypeScript",
           query: "TypeScript",
           context:
-            "TypeScript is a programming language developed by Microsoft that extends JavaScript with static types.",
+            "TypeScript is a programming language developed by Microsoft that builds on JavaScript by adding static types.",
         },
       ],
-      removeRecent: (q: string) => `Remove ${q} from recent`,
+      removeRecent: (q: string) => `Remove ${q} from recents`,
     },
     header: {
       searchPlaceholder: "Search WikipedIA…",
@@ -251,32 +217,26 @@ const translations = {
       generating: "Generating...",
       words: "words",
       readingTime: "min read",
-      errorTitle: "Error generating the article",
+      errorTitle: "Error generating article",
       errorRetry: "Try again",
       copy: "Copy",
       copied: "Copied",
       share: "Share",
-      shared: "Link copied!",
-      download: "Download",
-      expandImage: "View image",
-      relatedTitle: "You might also like",
-      shareOnX: "Share on X",
-      shareOnWhatsApp: "Share on WhatsApp",
-      copyLink: "Copy link",
-    },
-    toast: {
-      copied: "Copied to clipboard!",
-      linkCopied: "Link copied!",
-      downloaded: "Article downloaded!",
+      shared: "Shared",
+      download: "Download Markdown",
+      downloaded: "Downloaded",
+      lastUpdated: "Updated",
+      thinking: "Reasoning",
+      source: "Source",
+      related: "Related articles",
+      suggestMore: "Suggest more topics",
     },
     errors: {
-      unauthorized: "Invalid API key. Check your VITE_OPENROUTER_API_KEY.",
-      rateLimited: "Available tokens for this model have been exhausted.",
-      modelUnavailable:
-        "The selected model is currently unavailable.",
-      serverError: "Server error. Try again in a few seconds.",
-      networkError: "Connection error. Check your Internet.",
-      generic: "Something went wrong. Please try again.",
+      unauthorized: "Invalid or expired API key",
+      rateLimited: "Rate limit reached",
+      modelUnavailable: "AI model is unavailable",
+      serverError: "OpenRouter server error",
+      generic: "An unexpected error occurred",
       tryOtherModel: "Try with another AI:",
       retryWith: "Retry with",
       allExhausted: "All models are temporarily exhausted",
@@ -300,6 +260,18 @@ const translations = {
         "Trees communicate with each other through underground fungal networks called the 'Wood Wide Web'.",
         "The DNA of all living humans is 99.9% identical to each other.",
         "The observable universe is about 93 billion light-years in diameter.",
+        "Honeybees can recognize human faces and communicate using a 'waggle dance'.",
+        "Mount Everest grows about 4 millimeters every year due to tectonic plate movement.",
+        "There are over 200 million insects for every human being on planet Earth.",
+        "A hummingbird's heart beats up to 1,200 times per minute during flight.",
+        "Sharks have existed on Earth for over 400 million years, even longer than trees.",
+        "Antarctica is technically the largest desert in the world due to its low precipitation.",
+        "A single lightning bolt contains enough energy to toast 100,000 slices of bread.",
+        "Jellyfish have no heart, brain, lungs, or gills; they absorb oxygen through their skin.",
+        "The official name of Bangkok has 168 letters, making it the longest place name in the world.",
+        "An ostrich's eye is bigger than its brain.",
+        "Wombats produce cube-shaped poop to keep it from rolling away and to mark their territory.",
+        "On Saturn and Jupiter, it rains diamonds due to extreme atmospheric pressure.",
       ],
     },
     toc: {
@@ -309,100 +281,18 @@ const translations = {
       navigation: "Navigation",
       backToTop: "Back to top",
     },
-    toolbar: {
-      copy: "Copy",
-      copied: "Copied",
-      search: "Search",
-      removeHighlight: "Remove",
-      colors: {
-        yellow: "Yellow",
-        green: "Green",
-        blue: "Blue",
-        pink: "Pink",
-        orange: "Orange",
-      },
-    },
     footer: {
-      disclaimerPre: "The content of",
-      disclaimerPost:
-        "is AI-generated and may contain inaccuracies. Always verify with reliable sources.",
-      hosting: "Hosted by",
+      tagline: "World knowledge, summarized by AI",
+      github: "Source code on GitHub",
+      privacy: "Privacy",
+      terms: "Terms",
     },
-    settings: {
-      uiLanguage: "Interface language",
-      aiLanguage: "AI response language",
-      aiLangs: {
-        auto: "Automatic",
-        es: "Spanish",
-        en: "English",
-        fr: "French",
-        pt: "Portuguese",
-        de: "German",
-        it: "Italian",
-        ja: "Japanese",
-        zh: "Chinese",
-        ar: "Arabic",
-        ru: "Russian",
-      },
+    toast: {
+      copied: "Copied to clipboard",
+      linkCopied: "Link copied to clipboard",
+      downloaded: "Article downloaded",
     },
   },
 } as const
 
-type Translations = typeof translations
-
-// ── Context ───────────────────────────────────────────────────────────────────
-interface I18nContextValue {
-  uiLocale: UiLocale
-  setUiLocale: (l: UiLocale) => void
-  aiLang: AiLang
-  setAiLang: (l: AiLang) => void
-  t: Translations[UiLocale]
-}
-
-const I18nCtx = createContext<I18nContextValue | null>(null)
-
-export function I18nProvider({ children }: { children: ReactNode }) {
-  const [uiLocale, setUiLocaleState] = useState<UiLocale>(() => {
-    const stored = localStorage.getItem("wikia-ui-lang")
-    return (UI_LOCALES as readonly string[]).includes(stored ?? "")
-      ? (stored as UiLocale)
-      : "es"
-  })
-
-  const [aiLang, setAiLangState] = useState<AiLang>(() => {
-    const stored = localStorage.getItem("wikia-ai-lang")
-    return (AI_LANG_CODES as readonly string[]).includes(stored ?? "")
-      ? (stored as AiLang)
-      : "auto"
-  })
-
-  function setUiLocale(l: UiLocale) {
-    localStorage.setItem("wikia-ui-lang", l)
-    setUiLocaleState(l)
-  }
-
-  function setAiLang(l: AiLang) {
-    localStorage.setItem("wikia-ai-lang", l)
-    setAiLangState(l)
-  }
-
-  return (
-    <I18nCtx.Provider
-      value={{
-        uiLocale,
-        setUiLocale,
-        aiLang,
-        setAiLang,
-        t: translations[uiLocale],
-      }}
-    >
-      {children}
-    </I18nCtx.Provider>
-  )
-}
-
-export function useI18n(): I18nContextValue {
-  const ctx = useContext(I18nCtx)
-  if (!ctx) throw new Error("useI18n must be used inside <I18nProvider>")
-  return ctx
-}
+export type Translations = typeof translations

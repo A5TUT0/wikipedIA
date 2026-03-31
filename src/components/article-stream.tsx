@@ -1,8 +1,5 @@
 import { useMemo, useEffect, useRef, useState } from "react"
 import {
-  Brain,
-  ChevronDown,
-  ChevronUp,
   Copy,
   Check,
   Zap,
@@ -19,17 +16,18 @@ import {
 import type { ImageResult } from "@/lib/wikipedia-images"
 import { fetchImages } from "@/lib/wikipedia-images"
 import type { InfoboxData } from "@/lib/article-helpers"
-import type { ArticleMode } from "@/lib/openrouter"
-import { AI_MODELS, type AIModelId } from "@/lib/openrouter"
+import {
+  type ArticleMode,
+  type AIModelId,
+  AI_MODELS,
+} from "@/lib/openrouter"
 import { cn } from "@/lib/utils"
 import { SelectionToolbar } from "@/components/selection-toolbar"
 import { useI18n } from "@/lib/i18n"
-import { toast } from "@/components/toast"
-
+import { toast } from "@/lib/toast-service"
 interface ArticleStreamProps {
   title: string
   mode: ArticleMode
-  reasoning: string
   content: string
   isStreaming: boolean
   images: ImageResult[]
@@ -88,17 +86,23 @@ function LoadingEntertainment() {
   const { t } = useI18n()
   const facts = t.loading.facts
   const messages = t.loading.messages
-  const [factState, setFactState] = useState({ index: 0, visible: true })
+  const [factState, setFactState] = useState(() => ({
+    index: Math.floor(Math.random() * facts.length),
+    visible: true,
+  }))
   const [msgIndex, setMsgIndex] = useState(0)
 
   useEffect(() => {
     const interval = setInterval(() => {
       setFactState((prev) => ({ ...prev, visible: false }))
       setTimeout(() => {
-        setFactState((prev) => ({
-          index: (prev.index + 1) % facts.length,
-          visible: true,
-        }))
+        setFactState((prev) => {
+          let nextIndex
+          do {
+            nextIndex = Math.floor(Math.random() * facts.length)
+          } while (nextIndex === prev.index && facts.length > 1)
+          return { index: nextIndex, visible: true }
+        })
       }, 350)
     }, 6000)
     return () => clearInterval(interval)
@@ -129,17 +133,6 @@ function LoadingEntertainment() {
         >
           {facts[factState.index]}
         </p>
-        <div className="mt-3 flex gap-1">
-          {facts.map((fact, i) => (
-            <span
-              key={fact}
-              className={cn(
-                "inline-block h-1 rounded-full transition-all duration-500",
-                i === factState.index ? "w-4 bg-wiki-link" : "w-1 bg-border"
-              )}
-            />
-          ))}
-        </div>
       </div>
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <span className="inline-block size-1.5 animate-pulse rounded-full bg-wiki-link" />
@@ -552,7 +545,6 @@ const modeIcons: Record<ArticleMode, typeof Zap> = {
 export function ArticleStream({
   title,
   mode,
-  reasoning,
   content,
   isStreaming,
   images,
@@ -565,22 +557,10 @@ export function ArticleStream({
   onModelChange,
 }: ArticleStreamProps) {
   const { t, uiLocale } = useI18n()
-  const [reasoningOpen, setReasoningOpen] = useState(true)
   const [copied, setCopied] = useState(false)
   const [shared, setShared] = useState(false)
   const [lightboxImg, setLightboxImg] = useState<ImageResult | null>(null)
   const articleBodyRef = useRef<HTMLDivElement>(null)
-  const hasClosedReasoning = useRef(false)
-
-  // Auto-collapse reasoning when content arrives (derived state during render)
-  if (content && !hasClosedReasoning.current) {
-    hasClosedReasoning.current = true
-    if (reasoningOpen) setReasoningOpen(false)
-  }
-  if (!content && !reasoning) {
-    hasClosedReasoning.current = false
-    if (!reasoningOpen) setReasoningOpen(true)
-  }
 
   const displayTitle = useMemo(() => {
     const match = content.match(/^#\s+(.+)/)
@@ -628,6 +608,13 @@ export function ArticleStream({
     toast(t.toast.downloaded)
   }
 
+  const activeModel = useMemo(
+    () =>
+      AI_MODELS.find((m) => m.id === currentModel) ||
+      AI_MODELS.find((m) => m.id === "openai/gpt-oss-120b:free"),
+    [currentModel]
+  )
+
   const ModeIcon = modeIcons[mode]
 
   return (
@@ -650,6 +637,18 @@ export function ArticleStream({
 
       {/* ── Meta bar ────────────────────────────────────────────────── */}
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        {/* Model badge */}
+        {activeModel && (
+          <div className="flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/40 px-2 py-1 font-medium">
+            <img
+              src={activeModel.logo}
+              alt={activeModel.label}
+              className="size-3.5 object-contain"
+            />
+            <span className="hidden sm:inline">{activeModel.label}</span>
+          </div>
+        )}
+
         {/* Mode badge */}
         <span className="flex items-center gap-1 rounded-md border border-border/60 bg-muted/40 px-2 py-1 font-medium">
           <ModeIcon className="size-3 text-wiki-link" />
@@ -709,35 +708,6 @@ export function ArticleStream({
           </div>
         )}
       </div>
-
-      {/* ── AI Reasoning panel ──────────────────────────────────────── */}
-      {reasoning && (
-        <div className="overflow-hidden rounded-xl border border-border/60 bg-muted/30">
-          <button
-            type="button"
-            onClick={() => setReasoningOpen(!reasoningOpen)}
-            className="flex w-full items-center gap-2.5 px-4 py-3 text-left transition-colors hover:bg-muted/50"
-          >
-            <Brain className="size-4 shrink-0 text-wiki-link" />
-            <span className="text-sm font-medium text-muted-foreground">
-              {t.article.aiThinking}
-            </span>
-            {isStreaming && !content && (
-              <span className="ml-1 inline-block size-1.5 animate-pulse rounded-full bg-wiki-link" />
-            )}
-            {reasoningOpen ? (
-              <ChevronUp className="ml-auto size-4 text-muted-foreground/60" />
-            ) : (
-              <ChevronDown className="ml-auto size-4 text-muted-foreground/60" />
-            )}
-          </button>
-          {reasoningOpen && (
-            <div className="max-h-56 overflow-y-auto border-t border-border/50 px-4 py-3 text-[0.8125rem] leading-relaxed text-muted-foreground">
-              {reasoning}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* ── Error state ─────────────────────────────────────────────── */}
       {error && (() => {
